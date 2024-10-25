@@ -1,0 +1,83 @@
+//This is the Constructor macro which executes once when the application gets loaded
+
+//incarcam setarile de la ATC Setup
+
+//string rackOrientation = exec.Readkey("atcSetup","rackAxis","");
+//string rackOrientation = exec.Readkey("UserTextfields","30000","");
+string rackOrientation = AS3.Getfield(30000);
+
+
+//exec.AddStatusmessage( "rackOrientation = " + rackOrientation );
+if (rackOrientation == "X") {
+	AS3.Switchbutton(true, 20200);
+	AS3.Switchbutton(false, 20201);
+	AS3.Setfieldtext("X", 30000); // step X
+	AS3.Validatefield(30000); 
+	AS3.Setfieldtext("Y", 30001); // clear Y
+	AS3.Validatefield(30001); 
+	}
+else if (rackOrientation == "Y") {
+	AS3.Switchbutton(false, 20200);
+	AS3.Switchbutton(true, 20201);
+	AS3.Setfieldtext("Y", 30000); // step Y
+	AS3.Validatefield(30000); 
+	AS3.Setfieldtext("X", 30001); // clear X
+	AS3.Validatefield(30001); 
+	}
+else {
+	exec.AddStatusmessage( "rackOrientation not defined" );
+	}
+
+// citim variabilele la pornirea programului si le afisam in fields-uri
+for (int i = 30010; i < 30020; i++) {
+string setupValue = exec.Readkey("UserTextfields", Convert.ToString(i), "0.000");
+AS3.Setfieldtext(setupValue, i); 
+AS3.Validatefield(i);
+//exec.AddStatusmessage( i + " - " + setupValue );
+}
+
+// citim starea sloturilor pornirea programului si gestionam starea sloturilor
+for (int i = 20601; i < 20611; i++) {
+string slotNo = exec.Readkey("UserTextfields", Convert.ToString(i), "0");
+string toolInSlot = exec.Readkey("UserTextfields", Convert.ToString(i-100), "0");
+if (slotNo == "1") 
+	{
+		AS3.Switchbutton(true, i); // setam slotul ca fiind activ
+		AS3.Setfieldtext(toolInSlot, i-100); // punem scula in slotul respectiv
+		AS3.Validatefield(i-100); // validam inputul
+		AS3.SetLED(true, (i-19800)); //ledurile sunt de la 800 la 809, adica 20600-19800=800
+	}
+else if (slotNo == "0")
+	{ 
+		AS3.Switchbutton(false, i); 
+		AS3.Setfieldtext("0", i-100); // punem scula in slotul respectiv
+		AS3.SetLED(false, (i-19800)); //LED Disable - ledurile sunt de la 800 la 809, adica 20600-19800=800
+	}
+AS3.Setfieldtext(slotNo, i); 
+AS3.Validatefield(i);
+//exec.AddStatusmessage( i + " - " + rackX );
+}
+
+
+
+
+
+
+/*
+string rackX = exec.Readkey("UserTextfields", "30000", "0.000");
+AS3.Setfieldtext(rackX, 30000); 
+AS3.Validatefield(30000);
+
+string rackY = exec.Readkey("UserTextfields", "30001", "0.000");
+AS3.Setfieldtext(rackY, 30001); 
+AS3.Validatefield(30001);
+
+string rackZ = exec.Readkey("UserTextfields", "30002", "0.000");
+AS3.Setfieldtext(rackZ, 30002); 
+AS3.Validatefield(30002);
+
+string step = exec.Readkey("UserTextfields", "30003", "0.000");
+AS3.Setfieldtext(step, 30003); 
+AS3.Validatefield(30003);
+
+*/
