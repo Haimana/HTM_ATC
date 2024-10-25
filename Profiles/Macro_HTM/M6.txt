@@ -1,0 +1,329 @@
+﻿
+//exec.AddStatusmessage("M6 Start");
+exec.Stopspin(); 	//Make sure the spindle is OFF
+exec.Code("M09"); 	//Make sure coolant is OFF
+
+//definire mesaj sonor de eroare
+System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+
+if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
+{
+	exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
+	errorSound.Play();
+	exec.Stop();
+	return;
+}
+
+	//declarare variabile
+  	int newtool;		//scula noua ceruta in spindle
+  	int oldtool;		//scula existenta in spindle
+	
+  	int newSlot = 0;		//slotul in care se regaseste newtool, daca exista
+  	int oldSlot = 0;		//slotul in care se regaseste oldtool, daca exista
+	
+  	int ooo;
+  	int nnn;
+  	int err_lvl;
+	
+	//Dim cnt As Integer		'variabila ptr generare timeout in asteptarea semnalelor de la spindle
+	
+	int rackSize = 10;	//variabila ptr setarea numarului total de sloturi in magazie
+	
+	string rackAxis = AS3.Getfield(30000);	//determinam pe ce axa este aliniata magazia de scule (X sau Y)
+	string rackAxis2 = AS3.Getfield(30001);	//determinam pe ce axa este aliniata magazia de scule (X sau Y)
+	double rackX = AS3.Getfielddouble(30010);		//pozitia initiala (slot 1) de schimbare a sculelor pe axa X
+	double rackY = AS3.Getfielddouble(30011);		//pozitia de schimbare a sculelor pe axa Y
+	double rackZ = AS3.Getfielddouble(30012);		//pozitia in care se elibereaza/incarca scula pe axa Z
+	double stepRack = AS3.Getfielddouble(30013);		//pasul de indexare ptr fiecare slot in parte
+	double clearRack = AS3.Getfielddouble(30014);		//pozitia pe Y (sau X) ptr returnare scula (inainte de intrare in clema
+	double safeZ = AS3.Getfielddouble(30015);		//pozitia pe Z ptr incarcare scula (clearance pe deasupra conurilor)
+	double emptyZ = AS3.Getfielddouble(30016);		//pozitia pe Z unde se ridica spindle gol, fara scula, ptr traversarea pe deasupra sculelor si incarcarea noii scule
+	double tcfeed = AS3.Getfielddouble(30017);		//feedrate la care se face schimbarea sculelor
+	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
+	
+	
+	//exec.AddStatusmessage("rackAxis = " + rackAxis);
+
+
+	//checking for invalid values (unconfigured ATC system)
+	if ((stepRack == 0) || (safeZ == rackZ) || (tcfeed == 0)) { 
+		exec.AddStatusmessage("ATC Setup - Invalid ATC Settings - Check Setup");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}		
+
+	
+	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
+	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
+
+	//exec.AddStatusmessage("currentTool = " + currentTool);
+	//exec.AddStatusmessage("newTool = " + newTool);
+
+// case 0 - requested tool already loaded - don;t have to load same tool again
+	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
+
+// case 1 - not same tool, searching if currentTool have own slot already (was previously declared in rack)
+	// cautam daca exista deja pozitia lui oldtool in sloturi
+	for (int i = 20501; i < 20511; i++) {
+		if ((currentTool == AS3.Getfielddouble(i)) && (AS3.GetLED(i-19700))) {
+			oldSlot = (i-20500);
+		}
+	}
+		//exec.AddStatusmessage("oldSlot = " + oldSlot);
+		
+//case 2 - currentTool does not have own slot, searching for free slot in rack => currentTool return to first free slot in rack 
+	//daca oldtool nu are slot propriu cautam slot liber 
+	if ((oldSlot == 0) && (currentTool > 0)) {
+		//exec.AddStatusmessage("status OK");
+		for (int i = 20501; i < 20511; i++) {
+			if ((AS3.Getfielddouble(i) == 0) && (AS3.GetLED(i-19700))) {  // daca slotul nu este ocupat - field = 0 - si slotul nu este disabled LED 80x = true
+				oldSlot = (i-20500);
+				i = 20511; // iesim din bucla la primul slot liber gasit
+			}
+		}
+		exec.AddStatusmessage("ATC - Found Free Slot = " + oldSlot);
+
+	}
+
+
+//tool have own slot, returning to it => oldslot = first free slot in rack (110x)
+	//daca oldtool > 0 si are slot propriu (sau exista slot liber declarat anterior) in magazie, 
+	//returnam scula in slotul aferent
+	if ((oldSlot > 0) && (currentTool > 0)) {
+		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
+		
+		// moving spindle to clear Z for ATC operations
+		exec.AddStatusmessage("Moving in safeZ Z"+ safeZ);
+		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
+		while(exec.IsMoving()){}
+		
+		// cheking slot sensors, function will report error status if sensors are enabled
+		
+		// moving spindle in front of receiver slot
+		exec.AddStatusmessage("Align with slot on " + rackAxis + (rackX+(oldSlot-1)*stepRack));
+		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack)); 
+		while(exec.IsMoving()){}
+		// moving spindle in close to receiver slot on clearRack
+		exec.AddStatusmessage("In front of slot " + rackAxis2 + clearRack);
+		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		while(exec.IsMoving()){}
+		
+		// incepem suflarea aerului ptr curatare slot receptor			
+
+		//lowering spindle to releasing Z position (rackZ)
+		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
+		while(exec.IsMoving()){}
+		
+		//moving spindle into final docking position
+		exec.Code("G01 G53 " + rackAxis2 + rackY + " F" + tcfeed); 
+		while(exec.IsMoving()){}
+		
+		//activating drawbar pentru eliberare scula
+		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
+		exec.Wait(1000); // Wait one 1000msec
+
+		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
+		//if (checkZ <> rackZ) - checkZ inca neimplementat
+		
+		//daca sloturile au senzori (adica avem rackZ <> checkZ) verificam daca slotul raporteaza scula ca fiind returnata la dupa ce mutam in checkZ
+
+		//scriem currentTool in slotul gasit liber 
+			//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
+			exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
+
+			//afisam numarul sculei in 
+			AS3.Setfield(currentTool, (oldSlot+20500));
+
+			// scriem slotul in care a fost lasata scula si in Tooltable, field-ul SlotXX, unde XX este numarul sculei
+			string currentToolSlot = "Slot" + currentTool; // formatam stringul aferent campului unde se seteaza slotul sculei ce a fost in spindle - currentTool
+
+			//si facem scrierea in tooltable 
+			exec.Writekey("Tooltablevalues", currentToolSlot, Convert.ToString(oldSlot)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, oldSlot
+
+		// aici avem spindle empty, deci setam tool 0
+		exec.Setcurrenttool(0); //Spindle empty! Set the current tool -> 0
+		
+		// cum scula veche este in rack, activam ledul ptr RH/NRH Tool Type
+		// 'extragem NRH/RH din GetToolDesc			
+		// If InStr(1, GetToolDesc(getoemdro(oldslot)), "NRH") > 0 Then 
+			// SetUserLED(oldslot+100,1) 												
+		// Else
+			// SetUserLED(oldslot+100,0) 															
+		// End If
+		
+		
+		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
+		if (emptyZ != safeZ) {
+			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		} else { // when emptyZ == safeZ
+			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		}
+		
+		exec.Wait(1000); // Wait one 1000msec
+
+		//oprire aer
+		
+		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
+		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		while(exec.IsMoving()){}
+		
+		
+		// cuplare scula
+		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
+	}
+
+//daca totusi nu exista slot liber asteptam eliberare manuala a sculei. mutam spindle in TCP
+	if ((oldSlot == 0) && (currentTool > 0)) {
+		//moving to TCP prin script intern
+		//Call RunScript("ScreenSetMacros\" & GetActiveScreenSetName() & "\" & "Masters\Scripts\Common\GoTCPosition")
+
+		// Dim manualremove As Integer
+		// manualremove = Machmsg ("Manually remove the tool from spindle! Press OK when done!","Manual tool",1)
+		// 'setuserled(1905,0)		'stingem ledul martor prezenta scula in spindle
+		// If manualremove <> 1 Then DoOEMButton( 1021 ) 'reset
+		// If manualremove = 1 Then If err_lvl > 1 Then Message "ATC - Tool was manually removed from spindle"
+		
+		exec.AddStatusmessage("No free slot! Go to TCP! Tool removed!");
+		exec.Setcurrenttool(0); //Spindle empty! Set the current tool -> 0
+
+	}
+	
+//newtool loading code
+//run only if newtool is not 0
+
+	if (newTool > 0) {
+		
+		  exec.Setcurrenttool(newTool); //Set the current tool -> the new tool
+
+		
+	}
+	
+
+
+
+	
+exec.AddStatusmessage("M6 Finished");
+return;
+
+//Example linear toolchanger code
+
+//Tool positions definition
+int Chuckopenport = 1;
+int Chuckopenpin = 16;
+
+double[] ToolX = new double[11];
+double[] ToolY = new double[11];
+ToolX[0] = 0; // Tool0 X position
+ToolY[0] = 0; // Tool0 Y position
+
+ToolX[1] = 50; // Tool1 X position
+ToolY[1] = 10; // Tool1 Y position
+ToolX[2] = 100; // Tool2 X position
+ToolY[2] = 10; // Tool2 Y position
+ToolX[3] = 150; // Tool3 X position
+ToolY[3] = 10; // Tool3 Y position
+ToolX[4] = 200; // Tool4 X position
+ToolY[4] = 10; // Tool4 Y position
+ToolX[5] = 250; // Tool5 X position
+ToolY[5] = 10; // Tool5 Y position
+ToolX[6] = 300; // Tool6 X position
+ToolY[6] = 10; // Tool6 Y position
+ToolX[7] = 350; // Tool7 X position
+ToolY[7] = 10; // Tool7 Y position
+ToolX[8] = 400; // Tool8 X position
+ToolY[8] = 10; // Tool8 Y position
+ToolX[9] = 450; // Tool9 X position
+ToolY[9] = 10; // Tool9 Y position
+ToolX[10] = 500; // Tool10 X position
+ToolY[10] = 10; // Tool10 Y position
+
+double SafeZ = 100;
+double Ztoolrelease = 30;
+double Ztoolpickup = 28;
+
+int Newtool = exec.Getnewtool();
+int Currenttool = exec.Getcurrenttool();
+
+if(Newtool == -1) // If new tool number is -1 means a missing T code, so we need to stop here...
+return; 
+
+if(Newtool <1 || Newtool >10) // Tool number is out of range, so we need to stop here...
+return;
+
+if(Newtool == Currenttool) // Same tool was selected, so do nothing, stop here...
+return; 
+
+if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
+{
+  MessageBox.Show("The machine was not yet homed, do homeing before executing a tool change!");
+  exec.Stop();
+  return;
+}
+
+while(exec.IsMoving()){}
+
+// Get current XY machine coordinates to return to this position at the end of the macro
+
+double Xoriginalpos = exec.GetXmachpos();
+double Yoriginalpos = exec.GetYmachpos();
+
+// Stop spindle if running and Move Z up
+
+exec.Stopspin(); 
+exec.Code("G00 G53 Z"+ SafeZ); // Move Z up
+while(exec.IsMoving()){}
+
+if(Currenttool!=0) // No need to drop down tool if current tool number is zero
+{
+  // Move to old tool position on XY plane
+
+  exec.Code("G00 G53 X" + ToolX[Currenttool] + " Y" + ToolY[Currenttool]);
+  while(exec.IsMoving()){}
+
+  // Drop current tool
+  
+  exec.Code("G00 G53 Z"+ Ztoolrelease); // Move Z axis down to tool holder position
+  while(exec.IsMoving()){}
+  exec.Setoutpin(Chuckopenport, Chuckopenpin); // Open the chuck with pneumatic valve
+  exec.Wait(1000); // Wait one 1000msec
+  exec.Code("G00 G53 Z"+ SafeZ); // Move Z up
+  while(exec.IsMoving()){}
+}
+
+// Move to new tool position on XY plane
+exec.Code("G00 G53 X" + ToolX[Newtool] + " Y" + ToolY[Newtool]);
+while(exec.IsMoving()){}
+// Pick new tool
+
+exec.Code("G00 G53 Z"+ Ztoolpickup); // Move Z axis down to tool holder position
+while(exec.IsMoving()){}
+exec.Clroutpin(Chuckopenport, Chuckopenpin); // Close the chuck with pneumatic valve
+exec.Wait(1000); // Wait one 1000msec
+exec.Code("G00 G53 Z"+ SafeZ); // Move Z up
+while(exec.IsMoving()){}
+
+// Move back to start point
+
+exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos);
+while(exec.IsMoving()){}
+
+// Measure new tool will go here....
+//exec.Code("G43 H"+Newtool); // Load new tool offset
+
+exec.Wait(200);
+while(exec.IsMoving()){}
+if(!exec.Ismacrostopped()) // If tool change was not interrupted with a stop only then validate new tool number
+{
+  exec.Setcurrenttool(Newtool); //Set the current tool -> the new tool
+  MessageBox.Show("Tool change done.");
+}
+else
+{
+  exec.StopWithDeccel();
+  MessageBox.Show("Tool change was interrupted by user!");
+}
+
+

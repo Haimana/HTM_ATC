@@ -1,0 +1,338 @@
+//exec.AddStatusmessage("Evar = " + Evar);
+
+myEvar = Evar;
+
+RunMacro(Convert.ToInt32(Evar)); // Apel pentru slotul 1, poți schimba la 2 pentru alt macro
+
+#Events
+double? myEvar;
+
+static bool isMacroRunning = false; // Variabila globală pentru a verifica starea macro-ului
+
+// Metoda principală care rulează macro-ul
+public void RunMacro(int slotNo) {
+    if (!isMacroRunning) {
+        isMacroRunning = true; // Setăm starea că macro-ul este în execuție
+        int fieldNumber = slotNo + 20500;
+
+        // Verificăm dacă slotul este activ
+        int slotEnabled = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(fieldNumber + 100), "0"));
+        if (slotEnabled == 0) {
+            isMacroRunning = false; // Resetăm starea
+            return; // Ieșim din macro dacă slotul nu este activ
+        }
+
+        int spindleTool = exec.Getcurrenttool(); // Preluăm scula curentă
+		
+        // int oldTool = Convert.ToInt32(AS3.Getfield(fieldNumber)); // Preluăm scula deja introdusă în slot
+		// am comentat linia de mai sus si am inlocuit-o cu urmatoarele linii ptr cazul in care campul fieldNumber este definit dar nu are valoare ex: "20501="
+		// fieldNumber nu are valoare declarata, nici macar 0, cand  se initiaza un profil nou. modificarea asta rezolva problema
+		string savedTool = exec.Readkey("UserTextfields", Convert.ToString(fieldNumber), "0");
+		if (savedTool == "") savedTool = "0";
+		int oldTool = Convert.ToInt32(savedTool); // Preluăm scula deja introdusă în slot
+		
+		//definire mesaj sonor de eroare
+		System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+
+        // Creăm un formular pentru input
+        Form inputForm = new Form {
+            Text = slotNo < 10 ? "Change Tool in Slot #0" + slotNo : "Change Tool in Slot #" + slotNo,
+            StartPosition = FormStartPosition.CenterScreen,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MinimizeBox = false,
+            MaximizeBox = false,
+            ClientSize = new System.Drawing.Size(200, 150),
+            TopMost = true // Setăm formularul să fie întotdeauna în față
+        };
+
+        // Etichetă pentru explicații
+        Label label = new Label {
+            Text = "New tool for slot " + slotNo,
+            Top = 20,
+            Left = 10,
+            Font = new Font("Arial", 10, FontStyle.Regular),
+            AutoSize = true
+        };
+
+        // Câmp de input
+        TextBox inputBox = new TextBox {
+            Left = 50,
+            Top = 50,
+            Width = 100,
+            Font = new Font("Arial", 24, FontStyle.Regular),
+            TextAlign = HorizontalAlignment.Center
+        };
+
+        // Butoane OK și Cancel
+        Button okButton = new Button {
+            Text = "OK",
+            Left = 15,
+            Top = 100,
+            DialogResult = DialogResult.OK
+        };
+
+        Button cancelButton = new Button {
+            Text = "Cancel",
+            Left = 110,
+            Top = 100,
+            DialogResult = DialogResult.Cancel
+        };
+
+        // Adăugăm elementele în formular
+        inputForm.Controls.Add(label);
+        inputForm.Controls.Add(inputBox);
+        inputForm.Controls.Add(okButton);
+        inputForm.Controls.Add(cancelButton);
+        inputForm.AcceptButton = okButton;
+        inputForm.CancelButton = cancelButton;
+
+        // Arătăm fereastra și preluăm rezultatul
+        DialogResult result = inputForm.ShowDialog();
+
+        if (result == DialogResult.OK) {
+            int newTool;
+            if (int.TryParse(inputBox.Text, out newTool)) {
+                // Verificăm dacă valoarea este între 0 și 255
+                if (newTool >= 0 && newTool < 97) {
+                    // Verificăm dacă scula dorită este identică cu scula deja încărcată în slot
+                    if (oldTool == newTool && newTool > 0) { 
+                        exec.AddStatusmessage("Same Tool #" + newTool + " already loaded! Aborting!");
+						errorSound.Play();
+                        isMacroRunning = false; // Resetăm starea
+                        return; 
+                    }
+
+                    // Verificăm dacă scula dorită este deja în spindle
+                    if (spindleTool == newTool && newTool > 0) { 
+                        exec.AddStatusmessage("Tool #" + newTool + " loaded in spindle! Aborting!");
+						errorSound.Play();
+                        isMacroRunning = false; // Resetăm starea
+                        return; 
+                    }
+
+
+					//exec.AddStatusmessage("New Tool for Slot " + slotNo + " : " + newTool.ToString());
+					// Aici poți folosi valoarea newTool pentru alte operațiuni
+				
+					//verificam existenta sculei dorite in magazie
+					for (int slotPosition = 20501; slotPosition < 20511; slotPosition++)
+						{
+							//int checkSlot = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(slotPosition), "0"));
+							double checkSlot = AS3.Getfielddouble(slotPosition);
+
+							// exec.AddStatusmessage("Slot " + (slotPosition-20499) + " -> Tool " + checkSlot);
+							if ((newTool == checkSlot) && (newTool > 0)) {
+								exec.AddStatusmessage("Tool #" + newTool + " is already loaded in Slot #" + (slotPosition-20500));
+								errorSound.Play();
+								isMacroRunning = false; // Resetăm starea
+								return;
+							}
+						}
+
+					// daca nu am iesit din macro la verificarea anterioara scriem noua valoare
+					//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
+					exec.Writekey("UserTextfields", Convert.ToString(fieldNumber), Convert.ToString(newTool)); // scriem-salvam noua valoare in profile
+					//afisam numarul sculei in 
+					AS3.Setfield(newTool, fieldNumber);
+					
+					string oldToolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei vechi - oldTool
+					string newToolSlot = "Slot" + newTool; // formatam stringul aferent campului unde se seteaza slotul sculei noi - newTool
+					// exec.AddStatusmessage("oldTool Slot = " + oldToolSlot);
+					exec.Writekey("Tooltablevalues", oldToolSlot, "0"); //scriem 0 in campul slotului sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
+					// exec.AddStatusmessage("newTool Slot = " + newToolSlot);
+					exec.Writekey("Tooltablevalues", newToolSlot, Convert.ToString(slotNo)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, slotNo
+					exec.AddStatusmessage("slotNo = " + (slotNo));
+			
+			
+                    // exec.AddStatusmessage("New Tool for Slot " + slotNo + " : " + newTool.ToString());
+                    // // Scriem noua valoare în field-ul aferent slotului
+                    // exec.Writekey("UserTextfields", Convert.ToString(fieldNumber), Convert.ToString(newTool)); 
+                    AS3.Setfield(newTool, fieldNumber);
+					
+					//preluam informatia Tool Type din tooltable si o afisam in campurile 20521-20530
+					//formatam campul care cere tipul de scula
+					string toolType = "Type" + newTool; // formatam stringul aferent campului Type - newTool
+					exec.AddStatusmessage("Type = " + toolType);
+					//citim tipul din tooltable
+					// exec.Readkey("Tooltablevalues", toolType, "---")
+					exec.AddStatusmessage(toolType + " = " + (exec.Readkey("Tooltablevalues", toolType, "---")));
+					exec.AddStatusmessage("fieldnumber = " + (fieldNumber+20));
+
+					AS3.Setfieldtext(exec.Readkey("Tooltablevalues", toolType, "- empty -"), fieldNumber+20); // afisam tipul sculei in campul aferent
+					AS3.Validatefield(fieldNumber+20); 
+
+                    exec.AddStatusmessage("TC Done! Tool #" + oldTool + " was replaced by Tool #" + newTool);
+                } else {
+                    exec.AddStatusmessage("The input must be between 0 and 254!");
+                }
+            } else {
+                exec.AddStatusmessage("Invalid Input!");
+            }
+        }
+
+        // Resetăm starea macro-ului
+        isMacroRunning = false; 
+        // exec.AddStatusmessage("Macro-ul s-a terminat.");
+    } else {
+        exec.AddStatusmessage("Macro already running! Exiting!");
+        return;
+    }
+}
+
+
+
+
+// codul anterior - fara Evar - mentinut ptr referinte
+
+/*
+
+
+	int slotNo = 1;
+	
+	int fieldNumber = slotNo + 20499;
+
+	int isMacroRunning = 0; //variabila ce va verifica
+	
+	//verificam daca slotul este activ. Iesim din macro daca slotul este inactiv.
+	int slotEnabled = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(fieldNumber+100), "0"));
+	if (slotEnabled == 0) return;
+
+	int checkTool = 0; //variabila ptr verificarea existentei sculei nou cerute in magazie
+	int spindleTool = exec.Getcurrenttool(); //preluam scula curenta, incarcata in spindle
+	int oldTool = Convert.ToInt32(AS3.Getfield(fieldNumber)); // preluam scula deja introdusa in slot
+	//exec.AddStatusmessage("scula din slot = " + oldTool);
+	
+	//definire mesaj sonor de eroare
+	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+
+	//exec.AddStatusmessage("Spindle tool = " + spindleTool);
+	
+	// Creăm un formular
+	Form inputForm = new Form();
+		
+	if (slotNo < 10) { inputForm.Text = "Change Tool in Slot #0" + slotNo; } else { inputForm.Text = "Change Tool in Slot #" + slotNo; }
+        
+		// Etichetă pentru explicații
+        Label label = new Label();
+        label.Text = "New tool for slot " + slotNo;
+        label.Top = 20;
+        label.Left = 10;
+		label.Font = new Font("Arial", 10, FontStyle.Regular); // Tipul de font, dimensiunea și stilul
+		label.AutoSize = true; // Setăm AutoSize la true
+
+        // Câmp de input
+        TextBox inputBox = new TextBox();
+        inputBox.Left = 50;
+        inputBox.Top = 50;
+        inputBox.Width = 100;
+		inputBox.Font = new Font("Arial", 24, FontStyle.Regular); // Tipul de font, dimensiunea și stilul
+		inputBox.TextAlign = HorizontalAlignment.Center; // Alinierea textului (stânga, centru, dreapta)
+
+
+        // Buton de OK
+        Button okButton = new Button();
+        okButton.Text = "OK";
+        okButton.Left = 15;
+        okButton.Top = 100;
+        okButton.DialogResult = DialogResult.OK;
+
+        // Buton de Cancel
+        Button cancelButton = new Button();
+        cancelButton.Text = "Cancel";
+        cancelButton.Left = 110;
+        cancelButton.Top = 100;
+        cancelButton.DialogResult = DialogResult.Cancel;
+
+        // Adăugăm elementele în formular
+        inputForm.Controls.Add(label);
+        inputForm.Controls.Add(inputBox);
+        inputForm.Controls.Add(okButton);
+        inputForm.Controls.Add(cancelButton);
+
+        // Setăm dimensiunea formularului
+        inputForm.AcceptButton = okButton;
+        inputForm.CancelButton = cancelButton;
+        inputForm.StartPosition = FormStartPosition.CenterScreen;
+        inputForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+        inputForm.MinimizeBox = false;
+        inputForm.MaximizeBox = false;
+        inputForm.ClientSize = new System.Drawing.Size(200, 150);
+
+        // Arătăm fereastra și preluăm rezultatul
+        DialogResult result = inputForm.ShowDialog();
+
+	 
+	if (result == DialogResult.OK)
+	{
+		int newTool;
+		if (int.TryParse(inputBox.Text, out newTool))
+		{
+			// Verificăm dacă valoarea este între 0 și 255
+			if (newTool >= 0 && newTool < 255)
+			{
+				//verificam daca scula dorita este identica cu scula deja incarcata in slot. iesim daca da
+				if (oldTool == newTool && newTool > 0) 
+				{ 
+					exec.AddStatusmessage("Same Tool #" + newTool + " already loaded! Aborting!"); 
+					errorSound.Play();
+					return; 
+				}
+
+				//verificam daca scula dorita este deja in spindle. iesim daca da
+				if (spindleTool == newTool && newTool > 0) 
+				{ 
+					exec.AddStatusmessage("Tool #" + newTool + " loaded in spindle! Aborting!"); 
+					errorSound.Play();
+					return; 
+				}
+				
+				
+				exec.AddStatusmessage("New Tool for Slot " + slotNo + " : " + newTool.ToString());
+				// Aici poți folosi valoarea newTool pentru alte operațiuni
+				
+				//verificam existenta sculei dorite in magazie
+				for (int slotPosition = 20500; slotPosition < 20510; slotPosition++)
+					{
+						//int checkSlot = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(slotPosition), "0"));
+						double checkSlot = AS3.Getfielddouble(slotPosition);
+
+						// exec.AddStatusmessage("Slot " + (slotPosition-20499) + " -> Tool " + checkSlot);
+						if ((newTool == checkSlot) && (newTool > 0)) {
+							exec.AddStatusmessage("Tool #" + newTool + " is already loaded in Slot #" + (slotPosition-20499));
+							errorSound.Play();
+							return;
+						}
+					}
+				// daca nu am iesit din macro la verificarea anterioara scriem noua valoare
+				//scriem numarul sculei in field-ul aferent slotului(20500 ptr slotul 1)
+				exec.Writekey("UserTextfields", Convert.ToString(fieldNumber), Convert.ToString(newTool)); // scriem-salvam noua valoare in profile
+				//afisam numarul sculei in 
+				AS3.Setfield(newTool, fieldNumber);
+				
+				exec.AddStatusmessage("TC Done! Tool #" + oldTool + " was replaced by Tool #" + newTool);
+				
+				string oldToolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei vechi - oldTool
+				string newToolSlot = "Slot" + newTool; // formatam stringul aferent campului unde se seteaza slotul sculei noi - newTool
+				// exec.AddStatusmessage("oldTool Slot = " + oldToolSlot);
+				exec.Writekey("Tooltablevalues", oldToolSlot, "0"); //scriem 0 in campul slotului sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
+				// exec.AddStatusmessage("newTool Slot = " + newToolSlot);
+				exec.Writekey("Tooltablevalues", newToolSlot, Convert.ToString(slotNo)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, slotNo
+			
+				
+				
+				
+			}
+			else
+			{
+				exec.AddStatusmessage("The input must be between 0 and 254!");
+			}
+		}
+		else
+		{
+			exec.AddStatusmessage("Invalid Input!");
+		}
+	}
+
+
+*/
+

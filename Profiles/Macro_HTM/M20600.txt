@@ -1,0 +1,134 @@
+// macro for enable/disable rack's slots
+
+myEvar = Evar;
+
+RunMacro(Convert.ToInt32(Evar)); // Apel pentru slotul 1, poți schimba la 2 pentru alt macro
+
+#Events
+
+double? myEvar;
+
+static bool isMacroRunning = false; // Variabila globală pentru a verifica starea macro-ului
+
+public void RunMacro(int slotNo) {
+    if (!isMacroRunning) {
+
+        isMacroRunning = true; // Setăm starea că macro-ul este în execuție
+		//exec.AddStatusmessage("slotNo = " + slotNo);
+		
+		int varNo = 20600 + slotNo; //
+		string slotText = ""; // pentru formatarea slot-numer-ului, adaugam un 0 inaintea numarului slotului
+
+		//preluam numarul sculei existente in slot ptr actualizare tooltable
+		string oldTool = exec.Readkey("UserTextfields", Convert.ToString(varNo-100), "0");
+
+		bool status = AS3.Getbuttonstate(varNo);
+		//exec.AddStatusmessage( "status = " + status );
+
+		// texte ptr ferestrele de confirmari
+		if (slotNo < 10) slotText = "0"; //adaugare 0 ptr numere mai mici ca 10
+		string messageDisable = "Are you sure you want to DISABLE Slot #" + slotText + slotNo + "?\n\nExisting tool will be also removed!";
+		string messageEnable = "Are you sure you want to ENABLE Slot #" + slotText + slotNo + "?";
+		string title = "Slot Management";
+
+		if (status) 	//daca slotul este activat
+		{ 
+			DialogResult result = MessageBox.Show(messageDisable, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.ServiceNotification);
+			
+			if (result == DialogResult.Yes) {
+				AS3.Switchbutton(false, varNo);	//dezactivam slotul
+				AS3.Validatefield(varNo); 
+				exec.Writekey("UserTextfields", Convert.ToString(varNo), "0"); // salvam starea slotului prin scriere 0 in profile
+				exec.Writekey("UserTextfields", Convert.ToString(varNo-100), "0"); // detasam scula existenta din slot (scriem 0 in slotul dezactivat, 20500 ptr slot 0)
+				AS3.Setfield(0,varNo-100); // scriem 0 in campul slotului dezactivat - adica se sterge scula din slotul dezactivat
+				
+				// stergem slotul alocat sculei in variabilele originale din campurile [Tooltablevalues]
+				// Slot1 este variabila care contine slotul in care este scula 1
+				//exec.AddStatusmessage("old tool = " + oldTool);
+				string toolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei
+				//exec.AddStatusmessage("Slot = " + toolSlot);
+				//exec.AddStatusmessage("valoare in slot = " + (exec.Readkey("Tooltablevalues", toolSlot, "0")));
+				exec.Writekey("Tooltablevalues", toolSlot, "0"); //scriem 0 in slotul sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
+				
+				AS3.SetLED(false, (varNo-19800)); //LED disable - ledurile sunt de la 800 la 809, adica 20600-19800=800	
+			}
+		}
+		else 	//daca slotul este dezactivat
+		{
+			DialogResult result = MessageBox.Show(messageEnable, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.ServiceNotification);
+
+			if (result == DialogResult.Yes) {
+				AS3.Switchbutton(true, varNo);
+				AS3.Validatefield(varNo); 
+				exec.Writekey("UserTextfields", Convert.ToString(varNo), "1");
+				AS3.SetLED(true, (varNo-19800)); //ledurile sunt de la 800 la 809, adica 20600-19800=800	
+				}
+		}
+        // Resetăm starea macro-ului
+        isMacroRunning = false; 
+		// aici se termina codul macro
+		
+    } else {
+        exec.AddStatusmessage("Macro already running! Exiting!");
+        return;
+    }
+}
+
+
+
+/*
+
+// macro for enable/disable rack's slots
+
+int slotNo = 1; 
+int varNo = 20599 + slotNo; //scadem 1 ptr ca varNo incepe de la 20600
+string slotText = ""; // pentru formatarea slot-numer-ului, adaugam un 0 inaintea numarului slotului
+
+//preluam numarul sculei existente in slot ptr actualizare tooltable
+string oldTool = exec.Readkey("UserTextfields", Convert.ToString(varNo-100), "0");
+
+bool status = AS3.Getbuttonstate(varNo);
+//exec.AddStatusmessage( "status = " + status );
+
+// texte ptr ferestrele de confirmari
+if (slotNo < 10) slotText = "0"; //adaugare 0 ptr numere mai mici ca 10
+string messageDisable = "Are you sure you want to DISABLE Slot #" + slotText + slotNo + "?\n\nExisting tool will be also removed!";
+string messageEnable = "Are you sure you want to ENABLE Slot #" + slotText + slotNo + "?";
+string title = "Slot Management";
+
+if (status) 	//daca slotul este activat
+{ 
+	DialogResult result = MessageBox.Show(messageDisable, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.ServiceNotification);
+	
+	if (result == DialogResult.Yes) {
+		AS3.Switchbutton(false, varNo);	//dezactivam slotul
+		AS3.Validatefield(varNo); 
+		exec.Writekey("UserTextfields", Convert.ToString(varNo), "0"); // salvam starea slotului prin scriere 0 in profile
+		exec.Writekey("UserTextfields", Convert.ToString(varNo-100), "0"); // detasam scula existenta din slot (scriem 0 in slotul dezactivat, 20500 ptr slot 0)
+		AS3.Setfield(0,varNo-100); // scriem 0 in campul slotului dezactivat - adica se sterge scula din slotul dezactivat
+		
+		// stergem slotul alocat sculei in variabilele originale din campurile [Tooltablevalues]
+		// Slot1 este variabila care contine slotul in care este scula 1
+		//exec.AddStatusmessage("old tool = " + oldTool);
+		string toolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei
+		//exec.AddStatusmessage("Slot = " + toolSlot);
+		//exec.AddStatusmessage("valoare in slot = " + (exec.Readkey("Tooltablevalues", toolSlot, "0")));
+		exec.Writekey("Tooltablevalues", toolSlot, "0"); //scriem 0 in slotul sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
+		
+		AS3.SetLED(false, (varNo-19800)); //LED disable - ledurile sunt de la 800 la 809, adica 20600-19800=800	
+	}
+}
+else 	//daca slotul este dezactivat
+{
+	DialogResult result = MessageBox.Show(messageEnable, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.ServiceNotification);
+
+	if (result == DialogResult.Yes) {
+		AS3.Switchbutton(true, varNo);
+		AS3.Validatefield(varNo); 
+		exec.Writekey("UserTextfields", Convert.ToString(varNo), "1");
+		AS3.SetLED(true, (varNo-19800)); //ledurile sunt de la 800 la 809, adica 20600-19800=800	
+		}
+	}
+
+
+*/
