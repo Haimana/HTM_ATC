@@ -40034,11 +40034,11 @@ AS3.Addbackground(0, 0, 1920, 508, 335, 100, 100);
 //Add backgrounds to jog screen
 AS3jog.Addbackground(0, 0, 400, 508, 62, 1, 1);
 //Select the startup layers for the main screen
+AS3.selectlayer(100);
 AS3.selectlayer(57);
 AS3.selectlayer(49);
 AS3.selectlayer(46);
 AS3.selectlayer(38);
-AS3.selectlayer(31);
 AS3.selectlayer(27);
 AS3.selectlayer(20);
 AS3.selectlayer(13);

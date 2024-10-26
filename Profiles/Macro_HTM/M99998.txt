@@ -2,10 +2,8 @@
 
 //incarcam setarile de la ATC Setup
 
-//string rackOrientation = exec.Readkey("atcSetup","rackAxis","");
 //string rackOrientation = exec.Readkey("UserTextfields","30000","");
 string rackOrientation = AS3.Getfield(30000);
-
 
 //exec.AddStatusmessage( "rackOrientation = " + rackOrientation );
 if (rackOrientation == "X") {
@@ -45,39 +43,22 @@ if (slotNo == "1")
 		AS3.Switchbutton(true, i); // setam slotul ca fiind activ
 		AS3.Setfieldtext(toolInSlot, i-100); // punem scula in slotul respectiv
 		AS3.Validatefield(i-100); // validam inputul
-		AS3.SetLED(true, (i-19800)); //ledurile sunt de la 800 la 809, adica 20600-19800=800
+		AS3.SetLED(true, (i-19800)); //ledurile sunt de la 801 la 810, adica 20601-19800=801
+		
+		//afisam tipul de scula preluat din campul TypeXX, unde XX este nr sculei
+		//formatam stringul TypeXX
+		string toolNoType = "Type" + toolInSlot; // formatam stringul aferent campului Type - newTool
+		//actualizam fieldurile aferente afisarii tipului de scula - 20601-80=20521
+		AS3.Setfieldtext((exec.Readkey("Tooltablevalues",toolNoType,"-")),i-80);
 	}
 else if (slotNo == "0")
 	{ 
 		AS3.Switchbutton(false, i); 
-		AS3.Setfieldtext("0", i-100); // punem scula in slotul respectiv
-		AS3.SetLED(false, (i-19800)); //LED Disable - ledurile sunt de la 800 la 809, adica 20600-19800=800
+		AS3.Setfieldtext("0", i-100); // scriem 0 in slot deactivat
+		AS3.Validatefield(i-100); // validam inputul
+		AS3.SetLED(false, (i-19800)); //LED Disable - ledurile sunt de la 801 la 810, adica 20601-19800=801
 	}
 AS3.Setfieldtext(slotNo, i); 
 AS3.Validatefield(i);
 //exec.AddStatusmessage( i + " - " + rackX );
 }
-
-
-
-
-
-
-/*
-string rackX = exec.Readkey("UserTextfields", "30000", "0.000");
-AS3.Setfieldtext(rackX, 30000); 
-AS3.Validatefield(30000);
-
-string rackY = exec.Readkey("UserTextfields", "30001", "0.000");
-AS3.Setfieldtext(rackY, 30001); 
-AS3.Validatefield(30001);
-
-string rackZ = exec.Readkey("UserTextfields", "30002", "0.000");
-AS3.Setfieldtext(rackZ, 30002); 
-AS3.Validatefield(30002);
-
-string step = exec.Readkey("UserTextfields", "30003", "0.000");
-AS3.Setfieldtext(step, 30003); 
-AS3.Validatefield(30003);
-
-*/

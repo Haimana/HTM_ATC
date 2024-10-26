@@ -21,8 +21,6 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
   	int newSlot = 0;		//slotul in care se regaseste newtool, daca exista
   	int oldSlot = 0;		//slotul in care se regaseste oldtool, daca exista
 	
-  	int ooo;
-  	int nnn;
   	int err_lvl;
 	
 	//Dim cnt As Integer		'variabila ptr generare timeout in asteptarea semnalelor de la spindle
@@ -42,9 +40,6 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
 	
 	
-	//exec.AddStatusmessage("rackAxis = " + rackAxis);
-
-
 	//checking for invalid values (unconfigured ATC system)
 	if ((stepRack == 0) || (safeZ == rackZ) || (tcfeed == 0)) { 
 		exec.AddStatusmessage("ATC Setup - Invalid ATC Settings - Check Setup");
@@ -53,26 +48,22 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		return;
 	}		
 
-	
 	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
 
-	//exec.AddStatusmessage("currentTool = " + currentTool);
-	//exec.AddStatusmessage("newTool = " + newTool);
-
-// case 0 - requested tool already loaded - don;t have to load same tool again
+//////////////////////////////////////////////////////////////////////////////
+// case 0 - requested tool already loaded - don't have to load same tool again
 	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
 
 // case 1 - not same tool, searching if currentTool have own slot already (was previously declared in rack)
-	// cautam daca exista deja pozitia lui oldtool in sloturi
+	// cautam, daca exista deja, pozitia lui oldtool in sloturi
 	for (int i = 20501; i < 20511; i++) {
-		if ((currentTool == AS3.Getfielddouble(i)) && (AS3.GetLED(i-19700))) {
+		if ((currentTool == AS3.Getfielddouble(i)) && (AS3.GetLED(i-19700))) { // atribuim valoare lui oldSlot in caz ca gasim scula in rack
 			oldSlot = (i-20500);
 		}
 	}
-		//exec.AddStatusmessage("oldSlot = " + oldSlot);
 		
-//case 2 - currentTool does not have own slot, searching for free slot in rack => currentTool return to first free slot in rack 
+//case 2 - currentTool does not have own slot, searching for (first) free slot in rack => currentTool return to first free slot in rack 
 	//daca oldtool nu are slot propriu cautam slot liber 
 	if ((oldSlot == 0) && (currentTool > 0)) {
 		//exec.AddStatusmessage("status OK");
@@ -86,7 +77,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 
 	}
 
-
+////////////////////////////////////////////////////////////////////////////////
 //tool have own slot, returning to it => oldslot = first free slot in rack (110x)
 	//daca oldtool > 0 si are slot propriu (sau exista slot liber declarat anterior) in magazie, 
 	//returnam scula in slotul aferent
@@ -94,34 +85,46 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
 		
 		// moving spindle to clear Z for ATC operations
-		exec.AddStatusmessage("Moving in safeZ Z"+ safeZ);
+		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
 		
 		// cheking slot sensors, function will report error status if sensors are enabled
 		
 		// moving spindle in front of receiver slot
-		exec.AddStatusmessage("Align with slot on " + rackAxis + (rackX+(oldSlot-1)*stepRack));
+		exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
 		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack)); 
 		while(exec.IsMoving()){}
-		// moving spindle in close to receiver slot on clearRack
-		exec.AddStatusmessage("In front of slot " + rackAxis2 + clearRack);
+		exec.Wait(500); // Wait 500msec
+
+		// moving spindle close to receiver slot on clearRack
+		exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
 		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
 		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
 		
 		// incepem suflarea aerului ptr curatare slot receptor			
+		exec.AddStatusmessage("Blowing air for fork cleaning");
+		// de adaugat cod ptr actionare electrovalva
+		exec.Wait(500); // Wait 500msec
 
 		//lowering spindle to releasing Z position (rackZ)
+		exec.AddStatusmessage("Moving to rackZ Z" + rackZ);
 		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
 		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
 		
 		//moving spindle into final docking position
+		exec.AddStatusmessage("Moving into slot at " + rackAxis2 + rackY);
 		exec.Code("G01 G53 " + rackAxis2 + rackY + " F" + tcfeed); 
 		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
 		
 		//activating drawbar pentru eliberare scula
+		exec.AddStatusmessage("Activating drawbar");
 		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
-		exec.Wait(1000); // Wait one 1000msec
+		exec.Wait(500); // Wait 500msec
 
 		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
 		//if (checkZ <> rackZ) - checkZ inca neimplementat
@@ -129,17 +132,17 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		//daca sloturile au senzori (adica avem rackZ <> checkZ) verificam daca slotul raporteaza scula ca fiind returnata la dupa ce mutam in checkZ
 
 		//scriem currentTool in slotul gasit liber 
-			//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
-			exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
+		//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
+		exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
 
-			//afisam numarul sculei in 
-			AS3.Setfield(currentTool, (oldSlot+20500));
+		//afisam numarul sculei in 
+		AS3.Setfield(currentTool, (oldSlot+20500));
 
-			// scriem slotul in care a fost lasata scula si in Tooltable, field-ul SlotXX, unde XX este numarul sculei
-			string currentToolSlot = "Slot" + currentTool; // formatam stringul aferent campului unde se seteaza slotul sculei ce a fost in spindle - currentTool
+		// scriem slotul in care a fost lasata scula si in Tooltable, field-ul SlotXX, unde XX este numarul sculei
+		string currentToolSlot = "Slot" + currentTool; // formatam stringul aferent campului unde se seteaza slotul sculei ce a fost in spindle - currentTool
 
-			//si facem scrierea in tooltable 
-			exec.Writekey("Tooltablevalues", currentToolSlot, Convert.ToString(oldSlot)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, oldSlot
+		//si facem scrierea in tooltable 
+		exec.Writekey("Tooltablevalues", currentToolSlot, Convert.ToString(oldSlot)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, oldSlot
 
 		// aici avem spindle empty, deci setam tool 0
 		exec.Setcurrenttool(0); //Spindle empty! Set the current tool -> 0
@@ -155,20 +158,25 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		
 		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
 		if (emptyZ != safeZ) {
+			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
 			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		} else { // when emptyZ == safeZ
+			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		}
+		exec.Wait(500); // Wait 500msec
 		
-		exec.Wait(1000); // Wait one 1000msec
-
 		//oprire aer
+		exec.AddStatusmessage("Stop blowing air...");
+		exec.AddStatusmessage("De-Activating drawbar");
+		exec.Wait(500); // Wait 500msec
 		
+
 		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
-		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
-		while(exec.IsMoving()){}
+		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		// while(exec.IsMoving()){}
 		
 		
 		// cuplare scula
