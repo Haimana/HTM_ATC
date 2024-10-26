@@ -135,14 +135,28 @@ public void RunMacro(int slotNo) {
 					//afisam numarul sculei in 
 					AS3.Setfield(newTool, fieldNumber);
 					
-					string oldToolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei vechi - oldTool
-					string newToolSlot = "Slot" + newTool; // formatam stringul aferent campului unde se seteaza slotul sculei noi - newTool
-					// exec.AddStatusmessage("oldTool Slot = " + oldToolSlot);
-					exec.Writekey("Tooltablevalues", oldToolSlot, "0"); //scriem 0 in campul slotului sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
-					// exec.AddStatusmessage("newTool Slot = " + newToolSlot);
-					exec.Writekey("Tooltablevalues", newToolSlot, Convert.ToString(slotNo)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, slotNo
-					exec.AddStatusmessage("slotNo = " + (slotNo));
-			
+                    // am inlocuit metoda de salvare a detaliilor sculelor in tooltable
+                    // [astram astfel compatibilitatea cu procedurile uccnc (ar trebui) :)
+                    // codul este mai jos, sub liniile comentate
+
+					// string oldToolSlot = "Slot" + oldTool; // formatam stringul aferent campului unde se seteaza slotul sculei vechi - oldTool
+					// string newToolSlot = "Slot" + newTool; // formatam stringul aferent campului unde se seteaza slotul sculei noi - newTool
+					// // exec.AddStatusmessage("oldTool Slot = " + oldToolSlot);
+					// exec.Writekey("Tooltablevalues", oldToolSlot, "0"); //scriem 0 in campul slotului sculei pentru ca scula a fost scoasa din slot, deci nu are slot in magazia de scule
+					// // exec.AddStatusmessage("newTool Slot = " + newToolSlot);
+					// exec.Writekey("Tooltablevalues", newToolSlot, Convert.ToString(slotNo)); //scriem nr slotului in campul slotului sculei nou alocate slotului activ, slotNo
+					// exec.AddStatusmessage("slotNo = " + (slotNo));   
+                    
+                    // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
+                    var toolSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot;
+                    //scriem in tooltable noul slot ptr scula veche
+                    exec.Writetooltablecell(oldTool, toolSlot, Convert.ToString(0)); // adica 0 ptr ca scula a fost scoasa din rack
+                    //scriem in tooltable noul slot ptr scula nou alocata 
+                    exec.Writetooltablecell(newTool, toolSlot, Convert.ToString(slotNo)); // 
+                    // salvam tooltable-ul
+                    exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
+
+
 			
                     // exec.AddStatusmessage("New Tool for Slot " + slotNo + " : " + newTool.ToString());
                     // // Scriem noua valoare în field-ul aferent slotului

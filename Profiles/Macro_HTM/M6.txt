@@ -1,4 +1,4 @@
-﻿
+
 //exec.AddStatusmessage("M6 Start");
 exec.Stopspin(); 	//Make sure the spindle is OFF
 exec.Code("M09"); 	//Make sure coolant is OFF

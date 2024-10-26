@@ -34,6 +34,52 @@ AS3.Validatefield(i);
 //exec.AddStatusmessage( i + " - " + setupValue );
 }
 
+
+// citim starea sloturilor pornirea programului si gestionam starea sloturilor
+for ( int slotNo = 1; slotNo < 11; slotNo++) 
+{
+	// citima starea sloturilor - enabled/disabled
+	string slotStatus = exec.Readkey("UserTextfields", Convert.ToString(slotNo+20600), "0");
+	if (slotStatus == "1") {
+		AS3.Switchbutton(true, (slotNo+20600)); // setam slotul ca fiind activ
+		AS3.SetLED(true, (slotNo+800)); //ledurile sunt de la 801 la 810
+		
+		// initiem campurile cu 0. rescriem valoarea daca regasim scula alocata slotului
+		AS3.Setfieldtext("0", slotNo+20500);
+		
+		// acum cautam daca slotNo se regaseste in vreo variabila tool (SlotXX) din tooltable
+		for (int tool = 1; tool < 97; tool++) {
+			
+			// variabila ptr preluarea slotului aferent sculei
+			var toolsSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot;
+			int slotXX = Convert.ToInt32(exec.Readtooltablecell(tool, toolsSlot));
+			
+			//exec.AddStatusmessage("Tool " + slotXX + " in Slot " + slot);
+			// daca slotNo se regaseste setat ptr o anumita scula, afisam scula in acel slotNo
+			if (slotXX == slotNo) 
+				{
+					// exec.AddStatusmessage("Tool " + tool + " in Slot " + slotNo);
+					AS3.Setfieldtext(Convert.ToString(tool), slotNo+20500); // punem scula in slotul respectiv
+					AS3.Validatefield(slotNo); // validam inputul
+					tool = 97; //iesim din cautare imediat ce am gasit slotul alocat unei anumite scule
+				} 
+			AS3.Validatefield(slotNo); // validam inputul
+		}
+	} else if (slotStatus == "0") { 
+		// exec.AddStatusmessage("Slot " + slotNo + " disabled");
+		AS3.Switchbutton(false, (slotNo+20600)); 
+		AS3.SetLED(false, (slotNo+800)); //ledurile sunt de la 801 la 810
+	}
+
+}
+exec.AddStatusmessage("Ready!");
+
+
+/* metoda veche de preluare a sculelor aferente sloturilor. 
+*	se foloseau variabilele din campurile 20501-20510. 
+*	metoda noua preia sloturile din tooltable 
+
+
 // citim starea sloturilor pornirea programului si gestionam starea sloturilor
 for (int i = 20601; i < 20611; i++) {
 string slotNo = exec.Readkey("UserTextfields", Convert.ToString(i), "0");
@@ -62,3 +108,6 @@ AS3.Setfieldtext(slotNo, i);
 AS3.Validatefield(i);
 //exec.AddStatusmessage( i + " - " + rackX );
 }
+
+*/
+

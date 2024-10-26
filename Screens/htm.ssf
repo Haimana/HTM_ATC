@@ -40035,15 +40035,15 @@ AS3.Addbackground(0, 0, 1920, 508, 335, 100, 100);
 AS3jog.Addbackground(0, 0, 400, 508, 62, 1, 1);
 //Select the startup layers for the main screen
 AS3.selectlayer(100);
+AS3.selectlayer(59);
 AS3.selectlayer(57);
-AS3.selectlayer(49);
+AS3.selectlayer(53);
 AS3.selectlayer(46);
 AS3.selectlayer(38);
 AS3.selectlayer(27);
 AS3.selectlayer(20);
 AS3.selectlayer(13);
-AS3.selectlayer(8);
-AS3.selectlayer(2);
+AS3.selectlayer(5);
 //Select the startup layers for the jog screen
 //Add buttons to main screen
 AS3.Addbutton(1120, 2, 54, 54, false, false, 63, 0, 2);
@@ -40669,6 +40669,9 @@ AS3.Addbutton(812, 385, 60, 40, true, false, 606, 20607, 100);
 AS3.Addbutton(877, 385, 60, 40, true, false, 607, 20608, 100);
 AS3.Addbutton(942, 385, 60, 40, true, false, 608, 20609, 100);
 AS3.Addbutton(1007, 385, 60, 40, true, false, 609, 20610, 100);
+AS3.Addbutton(1034, 762, 35, 41, false, false, 0, 7777, 2);
+AS3.Addbutton(1089, 763, 37, 41, false, false, 0, 5411, 2);
+AS3.Addbutton(40, 459, 154, 40, false, false, 163, 779, 57);
 //Add buttons to jog screen
 AS3jog.Addbutton(253, 362, 65, 65, false, false, 33, 147, 1);
 AS3jog.Addbutton(176, 362, 65, 65, false, false, 34, 148, 1);
@@ -43937,6 +43940,14 @@ AS3.Addfield("", "Arial", "right", 26, -16777216, 933, 104, 140, "fieldnb", -100
 AS3.Addfield("", "Arial", "right", 26, -16777216, 933, 139, 140, "fieldnb", -1000000, 1000000, 30015, 100);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 933, 174, 140, "fieldnb", -1000000, 1000000, 30016, 100);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 933, 209, 140, "fieldnb", -1000000, 1000000, 30017, 100);
+AS3.Addfield("", "Arial", "center", 25, -16777216, 1192, 68, 72, "updown", 0, 17, 185, 100);
+AS3.Setfieldtext("0", 185);
+AS3.Addfield("", "Arial", "center", 25, -16777216, 1287, 68, 72, "updown", 0, 5, 285, 100);
+AS3.Setfieldtext("1", 285);
+AS3.Addfield("", "Arial", "center", 25, -16777216, 1194, 139, 72, "updown", 0, 17, 186, 100);
+AS3.Setfieldtext("0", 186);
+AS3.Addfield("", "Arial", "center", 25, -16777216, 1288, 138, 72, "updown", 0, 5, 286, 100);
+AS3.Setfieldtext("1", 286);
 //Add textfields to jog screen
 AS3jog.Addfield("", "Arial", "center", 22, -16777216, 90, 223, 71, "fieldnb", 0, 100, 913, 1);
 AS3jog.Setfieldtext("10", 913);
@@ -44205,6 +44216,8 @@ AS3.Addlabel("Probe", "Arial", "left", 18, -1, 1670, 311, 26);
 AS3.Addlabel("Size", "Arial", "left", 18, -1, 1763, 311, 26);
 AS3.Addlabel("Center", "Arial", "left", 18, -1, 1836, 311, 26);
 AS3.Addlabel("Angle", "Arial", "left", 18, -1, 1771, 463, 26);
+AS3.Addlabel("M7 / pin / port  / active low", "Arial", "left", 18, -1, 1191, 37, 100);
+AS3.Addlabel("M8 / pin / port  / active low", "Arial", "left", 18, -1, 1189, 113, 100);
 //Add labels to jog screen
 //Add lists to main screen
 AS3.Addlist("Arial", "left", 14, -1, -13948375, 1, 5, 661, 241, 350, 2, 1);
@@ -44668,6 +44681,8 @@ AS3.Addcheckbox("", "Arial", 21, 0, 1479, 447, 207, 45);
 AS3.Addcheckbox("", "Arial", 21, 0, 1422, 475, 208, 45);
 AS3.Addcheckbox("", "Arial", 21, 0, 1451, 475, 209, 45);
 AS3.Addcheckbox("", "Arial", 21, 0, 1479, 475, 210, 45);
+AS3.Addcheckbox("", "Arial", 20, 0, 1374, 70, 71, 100);
+AS3.Addcheckbox("", "Arial", 20, 0, 1374, 139, 72, 100);
 //Add checkboxes to jog screen
 //Add sliders to main screen
 AS3.Addslider(1065, 666, 135, -65536, -5658199, 0, 300, false, false, 232, 1);
