@@ -15,25 +15,28 @@ public void RunMacro(int slotNo) {
         isMacroRunning = true; // Setăm starea că macro-ul este în execuție
 
         // Verificăm dacă slotul este activ
-        int slotEnabled = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(slotNo + 20600), "0"));
-        if (slotEnabled == 0) {
+        // int slotStatus = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(slotNo + 20600), "0"));
+        // if (slotStatus == 0) {
+		//bool slotStatus = AS3.Getbuttonstate(slotNo+20600);
+		bool slotStatus = AS3.GetLED(slotNo+800);
+        if (!slotStatus) {
             isMacroRunning = false; // Resetăm starea
             return; // Ieșim din macro dacă slotul nu este activ
         }
 
 		int oldTool = 0;
         int spindleTool = exec.Getcurrenttool(); // Preluăm scula curentă
-        var toolSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
+        var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
 
 		//definire mesaj sonor de eroare
 		System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
 
 		//preluam scula din slot in baza tooltable. cautam scula care are fieldul SlotXX si determinam XX care este nr sculei
-		for (int tool = 1; tool < 97; tool++) {
-			int slotXX = Convert.ToInt32(exec.Readtooltablecell(tool, toolSlot));
-			if (slotXX == slotNo) {
-				oldTool = tool;
-				tool = 97; //iesim cand gasim scula aferenta slotului slotNo
+		for (int i = 1; i < 97; i++) {
+			int y = Convert.ToInt32(exec.Readtooltablecell(i, varSlot));
+			if (y == slotNo) {
+				oldTool = i;
+				i = 97; //iesim cand gasim scula aferenta slotului slotNo
 			}
 		}
 
@@ -112,20 +115,16 @@ public void RunMacro(int slotNo) {
                         isMacroRunning = false; // Resetăm starea
                         return; 
                     }
-
-
-					//exec.AddStatusmessage("New Tool for Slot " + slotNo + " : " + newTool.ToString());
-					// Aici poți folosi valoarea newTool pentru alte operațiuni
 				
 					//verificam existenta sculei dorite in magazie
-					for (int slotPosition = 20501; slotPosition < 20511; slotPosition++)
+					for (int i = 20501; i < 20511; i++)
 						{
-							//int checkSlot = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(slotPosition), "0"));
-							double checkSlot = AS3.Getfielddouble(slotPosition);
+							//int checkSlot = Convert.ToInt32(exec.Readkey("UserTextfields", Convert.ToString(i), "0"));
+							double checkSlot = AS3.Getfielddouble(i);
 
-							// exec.AddStatusmessage("Slot " + (slotPosition-20499) + " -> Tool " + checkSlot);
+							// exec.AddStatusmessage("Slot " + (i-20499) + " -> Tool " + checkSlot);
 							if ((newTool == checkSlot) && (newTool > 0)) {
-								exec.AddStatusmessage("Tool #" + newTool + " is already loaded in Slot #" + (slotPosition-20500));
+								exec.AddStatusmessage("T" + newTool + " is already loaded in Slot #" + (i-20500));
 								errorSound.Play();
 								isMacroRunning = false; // Resetăm starea
 								return;
@@ -133,9 +132,9 @@ public void RunMacro(int slotNo) {
 						}
 				
                     //scriem in tooltable noul slot ptr scula veche
-                    exec.Writetooltablecell(oldTool, toolSlot, Convert.ToString(0)); // adica 0 ptr ca scula a fost scoasa din rack
+                    exec.Writetooltablecell(oldTool, varSlot, Convert.ToString(0)); // adica 0 ptr ca scula a fost scoasa din rack
                     //scriem in tooltable noul slot ptr scula nou alocata 
-                    exec.Writetooltablecell(newTool, toolSlot, Convert.ToString(slotNo)); // 
+                    exec.Writetooltablecell(newTool, varSlot, Convert.ToString(slotNo)); // 
                     // salvam tooltable-ul
                     exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
 
@@ -144,9 +143,10 @@ public void RunMacro(int slotNo) {
 
                     exec.AddStatusmessage("Slot " + slotNo + " - T" + oldTool + " replaced by T" + newTool);
                 } else {
-                    exec.AddStatusmessage("The input must be between 0 and 254!");
+                    exec.AddStatusmessage("The input must be between 0 and 96!");
                 }
             } else {
+				errorSound.Play();
                 exec.AddStatusmessage("Invalid Input!");
             }
         }
