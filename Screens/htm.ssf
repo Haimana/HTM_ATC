@@ -39906,7 +39906,8 @@ AS3.Loadpicture("BMP/HTM/8ec_transparent.png", "BMP/HTM/8ec_transparent.png",999
 AS3.Loadpicture("BMP/HTM/8ec_sensors_ofOff.png", "BMP/HTM/8ec_sensors_ofOff.png",889, false);
 AS3.Loadpicture("BMP/HTM/8ec_airBlow.png", "BMP/HTM/8ec_airBlow.png",890, false);
 AS3.Loadpicture("BMP/HTM/8ec_gotoTCP.png", "BMP/HTM/8ec_gotoTCP.png",891, false);
-AS3.Loadpicture("BMP/HTM/8ec_rhLED.png", "BMP/HTM/8ec_rhLED.png",892, true);
+AS3.Loadpicture("BMP/HTM/8ec_rhLED.png", "BMP/HTM/8ec_rhLED.png",892, false);
+AS3.Loadpicture("BMP/HTM/8ec_toolActiveLED.png", "BMP/HTM/8ec_toolActiveLED.png",893, true);
 //Load images for jog screen
 AS3jog.Loadpicture("BMP/Default2019/plus_up.png", "BMP/Default2019/plus_down.png",22, false);
 AS3jog.Loadpicture("BMP/Default2019/minus_up.png", "BMP/Default2019/minus_down.png",23, false);
@@ -44200,7 +44201,7 @@ AS3.Addled(1410, 193, 156, 230, false, 888, 808, 57);
 AS3.Addled(1580, 193, 156, 230, false, 888, 809, 57);
 AS3.Addled(1750, 193, 156, 230, false, 888, 810, 57);
 AS3.Addled(250, 275, 100, 15, false, 892, 811, 57);
-AS3.Addled(220, 193, 156, 230, false, 888, 801, 57);
+AS3.Addled(220, 493, 156, 230, false, 888, 801, 57);
 AS3.Addled(420, 275, 100, 15, false, 892, 812, 57);
 AS3.Addled(590, 275, 100, 15, false, 892, 813, 57);
 AS3.Addled(760, 275, 100, 15, false, 892, 814, 57);
@@ -44210,6 +44211,16 @@ AS3.Addled(1270, 275, 100, 15, false, 892, 817, 57);
 AS3.Addled(1440, 275, 100, 15, false, 892, 818, 57);
 AS3.Addled(1610, 275, 100, 15, false, 892, 819, 57);
 AS3.Addled(1780, 275, 100, 15, false, 892, 820, 57);
+AS3.Addled(265, 275, 70, 15, false, 893, 821, 57);
+AS3.Addled(435, 275, 70, 15, false, 893, 822, 57);
+AS3.Addled(605, 275, 70, 15, false, 893, 823, 57);
+AS3.Addled(775, 275, 70, 15, false, 893, 824, 57);
+AS3.Addled(945, 275, 70, 15, false, 893, 825, 57);
+AS3.Addled(1115, 275, 70, 15, false, 893, 826, 57);
+AS3.Addled(1285, 275, 70, 15, false, 893, 827, 57);
+AS3.Addled(1455, 275, 70, 15, false, 893, 828, 57);
+AS3.Addled(1625, 275, 70, 15, false, 893, 829, 57);
+AS3.Addled(1795, 276, 70, 15, false, 893, 830, 57);
 //Add LEDs to jog screen
 //Add labels to main screen
 AS3.Addlabel("File:", "Arial", "left", 20, -1, 1180, 25, 2);

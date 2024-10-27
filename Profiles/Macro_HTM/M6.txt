@@ -39,6 +39,10 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	double emptyZ = AS3.Getfielddouble(30016);		//pozitia pe Z unde se ridica spindle gol, fara scula, ptr traversarea pe deasupra sculelor si incarcarea noii scule
 	double tcfeed = AS3.Getfielddouble(30017);		//feedrate la care se face schimbarea sculelor
 	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
+
+	// Get current XY machine coordinates to return to this position at the end of the macro
+	double Xoriginalpos = exec.GetXmachpos();
+	double Yoriginalpos = exec.GetYmachpos();
 	
     var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
 	var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
@@ -111,7 +115,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		exec.Wait(500); // Wait 500msec
 		
 		// incepem suflarea aerului ptr curatare slot receptor			
-		exec.AddStatusmessage("Blowing air for fork cleaning");
+		exec.AddStatusmessage("---Blowing air for fork cleaning");
 		// de adaugat cod ptr actionare electrovalva
 		exec.Wait(500); // Wait 500msec
 
@@ -128,10 +132,37 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		exec.Wait(500); // Wait 500msec
 		
 		//activating drawbar pentru eliberare scula
-		exec.AddStatusmessage("Activating drawbar");
+		exec.AddStatusmessage("---Activating drawbar");
 		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
 		exec.Wait(500); // Wait 500msec
 
+		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
+		if (emptyZ != safeZ) {
+			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
+			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		} else { // when emptyZ == safeZ
+			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
+			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		}
+		exec.Wait(500); // Wait 500msec
+		
+		//oprire aer
+		exec.AddStatusmessage("---Stop blowing air...");
+		exec.Wait(500); // Wait 500msec
+		
+
+		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
+		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		// while(exec.IsMoving()){}
+		
+		
+		// cuplare scula
+		exec.AddStatusmessage("---Deactivating drawbar");
+		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
+		
+		
 		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
 		//if (checkZ <> rackZ) - checkZ inca neimplementat
 		
@@ -142,6 +173,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		
 		exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
                     
+		AS3.SetLED(false, (oldSlot+820)); // stingem LED de scula activa pe oldSlot
 					
 		//afisam numarul sculei in slot
 		AS3.Setfield(currentTool, (oldSlot+20500));
@@ -178,40 +210,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		// aici avem spindle empty, deci setam tool 0
 		exec.Setcurrenttool(0); //Spindle empty! Set the current tool -> 0
 		
-		// cum scula veche este in rack, activam ledul ptr RH/NRH Tool Type
-		// 'extragem NRH/RH din GetToolDesc			
-		// If InStr(1, GetToolDesc(getoemdro(oldslot)), "NRH") > 0 Then 
-			// SetUserLED(oldslot+100,1) 												
-		// Else
-			// SetUserLED(oldslot+100,0) 															
-		// End If
-		
-		
-		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
-		if (emptyZ != safeZ) {
-			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
-			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
-			while(exec.IsMoving()){}
-		} else { // when emptyZ == safeZ
-			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
-			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
-			while(exec.IsMoving()){}
-		}
-		exec.Wait(500); // Wait 500msec
-		
-		//oprire aer
-		exec.AddStatusmessage("Stop blowing air...");
-		exec.AddStatusmessage("De-Activating drawbar");
-		exec.Wait(500); // Wait 500msec
-		
 
-		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
-		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
-		// while(exec.IsMoving()){}
-		
-		
-		// cuplare scula
-		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
 	}
 
 //daca totusi nu exista slot liber asteptam eliberare manuala a sculei. mutam spindle in TCP
@@ -235,8 +234,72 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 
 	if (newTool > 0) {
 		
-		  exec.Setcurrenttool(newTool); //Set the current tool -> the new tool
+		  
+	//searching newtool no in slots
+		for (int i = 1; i < 11; i++) {
+			if (AS3.GetLED(i+800)) {  // cautam doar in sloturile active
+				if (newTool == Convert.ToInt32(AS3.Getfield(i+20500))) {
+					newSlot = (i);
+					exec.AddStatusmessage("ATC - T" + newTool + " found in Slot #" + newSlot);
+					i = 11; // iesim din bucla daca gasim scula ceruta in magazie
+				}
+			}
+		}
 
+		//aici trebuie adaugata coborarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
+		if (emptyZ != safeZ) {
+			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
+			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		} else { // when emptyZ == safeZ
+			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
+			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
+			while(exec.IsMoving()){}
+		}
+		exec.Wait(500); // Wait 500msec
+		
+		// moving spindle above emmiter slot
+		exec.AddStatusmessage("Moving in above slot at " + rackAxis + (rackX+(newSlot-1)*stepRack));
+		exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
+		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec		
+
+		//activating drawbar pentru cuplare scula scula
+		exec.AddStatusmessage("---Activating drawbar");
+		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
+		
+		// incepem suflarea aerului ptr curatare slot receptor			
+		exec.AddStatusmessage("---Blowing air for fork cleaning");
+		// de adaugat cod ptr actionare electrovalva
+		exec.Wait(500); // Wait 500msec
+
+		//lowering spindle to loading Z position (rackZ)
+		exec.AddStatusmessage("Moving to rackZ Z" + rackZ);
+		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
+		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
+
+		// cuplare scula
+		exec.AddStatusmessage("---Deactivating drawbar");
+		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
+		//oprire aer
+		exec.AddStatusmessage("---Stop blowing air...");
+		exec.Wait(500); // Wait 500msec
+
+		// moving spindle to clear Z for ATC operations
+		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
+		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
+		while(exec.IsMoving()){}
+		exec.Wait(500); // Wait 500msec
+
+		
+	exec.Setcurrenttool(newTool); //Set the current tool -> the new tool
+	
+	AS3.SetLED(true, (newSlot+820)); // aprindem LED de scula activa pe oldSlot
+
+	// Move back to start point
+	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos);
+	while(exec.IsMoving()){}
 		
 	}
 	
@@ -246,6 +309,8 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	
 exec.AddStatusmessage("M6 Finished");
 return;
+
+/*
 
 //Example linear toolchanger code
 
@@ -365,4 +430,5 @@ else
   MessageBox.Show("Tool change was interrupted by user!");
 }
 
+*/
 
