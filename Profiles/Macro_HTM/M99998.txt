@@ -37,12 +37,14 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 {
 	// citima starea sloturilor - enabled/disabled
 	string slotStatus = exec.Readkey("UserTextfields", Convert.ToString(slotNo+20600), "0");
+
+
 	if (slotStatus == "1") {
 		AS3.Switchbutton(true, (slotNo+20600)); // setam slotul ca fiind activ
 		AS3.SetLED(true, (slotNo+800)); //ledurile sunt de la 801 la 810
-		
+
 		// initiem campurile cu 0. rescriem valoarea daca regasim scula alocata slotului
-		//AS3.Setfieldtext("0", slotNo+20500);
+		AS3.Setfieldtext("0", slotNo+20500);
 		//AS3.Setfieldtext("0", slotNo+20510);
 		//AS3.Setfieldtext("0", slotNo+20520);
 		
