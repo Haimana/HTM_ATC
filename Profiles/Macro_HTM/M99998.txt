@@ -62,10 +62,12 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 			var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot;
 			var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 			var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
+			var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
 			
 			int valueSlot = Convert.ToInt32(exec.Readtooltablecell(i, varSlot)); //SlotXX
 			string valueLength = exec.Readtooltablecell(i, varLength); //LengthXX
 			string valueDiameter = exec.Readtooltablecell(i, varDiameter); //DiameterXX
+			string valueType = exec.Readtooltablecell(i, varType); //TypeXX
 
 			if (valueSlot == slotNo) // daca slotNo se regaseste setat ptr o anumita scula, afisam scula in acel slotNo
 				{
@@ -77,6 +79,12 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 
 					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
 					AS3.Validatefield(slotNo+20520); // validam inputul
+					
+					if (valueType == "RH") {
+						AS3.SetLED(true, (slotNo+810)); //ledurile sunt de la 801 la 810
+					} else {
+						AS3.SetLED(false, (slotNo+810)); //ledurile sunt de la 801 la 810
+					}
 					
 					i = 97; //iesim din cautare imediat ce am gasit slotul alocat unei anumite scule
 				} 

@@ -29,6 +29,7 @@ public void RunMacro(int slotNo) {
         var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
 		var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 		var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
+		var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
 
 		//definire mesaj sonor de eroare
 		System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
@@ -148,6 +149,13 @@ public void RunMacro(int slotNo) {
 					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
 					AS3.Validatefield(slotNo+20520); // validam inputul
 					
+					string valueType = exec.Readtooltablecell(newTool, varType); //LengthXX
+					if (valueType == "RH") {
+						AS3.SetLED(true, (slotNo+810)); //ledurile sunt de la 801 la 810
+					} else {
+						AS3.SetLED(false, (slotNo+810)); //ledurile sunt de la 801 la 810
+					}
+
 					//afisam numarul sculei in screenset
 					AS3.Setfield(newTool, (slotNo + 20500));
 

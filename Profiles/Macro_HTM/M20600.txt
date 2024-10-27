@@ -80,6 +80,9 @@ public void RunMacro(int slotNo) {
 
 				AS3.Setfieldtext("", slotNo+20520); // dezactivam slotul stergem afisarea 
 				AS3.Validatefield(slotNo+20520); // validam inputul
+				
+				AS3.SetLED(false, (slotNo+810)); //dezactivam ledurile de RH
+
 
         // Resetăm starea macro-ului
         isMacroRunning = false; 

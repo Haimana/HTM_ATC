@@ -26,6 +26,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	//Dim cnt As Integer		'variabila ptr generare timeout in asteptarea semnalelor de la spindle
 	
 	int rackSize = 10;	//variabila ptr setarea numarului total de sloturi in magazie
+	bool updateDetails = false;
 	
 	string rackAxis = AS3.Getfield(30000);	//determinam pe ce axa este aliniata magazia de scule (X sau Y)
 	string rackAxis2 = AS3.Getfield(30001);	//determinam pe ce axa este aliniata magazia de scule (X sau Y)
@@ -39,6 +40,10 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	double tcfeed = AS3.Getfielddouble(30017);		//feedrate la care se face schimbarea sculelor
 	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
 	
+    var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
+	var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+	var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
+	var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
 	
 	//checking for invalid values (unconfigured ATC system)
 	if ((stepRack == 0) || (safeZ == rackZ) || (tcfeed == 0)) { 
@@ -70,6 +75,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		for (int i = 20501; i < 20511; i++) {
 			if ((AS3.Getfielddouble(i) == 0) && (AS3.GetLED(i-19700))) {  // daca slotul nu este ocupat - field = 0 - si slotul nu este disabled LED 80x = true
 				oldSlot = (i-20500);
+				updateDetails = true;
 				i = 20511; // iesim din bucla la primul slot liber gasit
 			}
 		}
@@ -133,10 +139,35 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 
 		//scriem currentTool in slotul gasit liber 
 		//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
+		
 		exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
-
-		//afisam numarul sculei in 
+                    
+					
+		//afisam numarul sculei in slot
 		AS3.Setfield(currentTool, (oldSlot+20500));
+
+		if (updateDetails) { // daca scula a fost returnata in slot liber, actualizam slotul si parametrii sculei (SlotXX)
+			//scriem in tooltable noul slot ptr scula nou alocata 
+			exec.Writetooltablecell(currentTool, varSlot, Convert.ToString(oldSlot)); // 
+
+			string valueDiameter = exec.Readtooltablecell(currentTool, varDiameter); //DiameterXX
+			AS3.Setfieldtext(valueDiameter, oldSlot+20510); // afisam diametrul sculei din slot
+			AS3.Validatefield(oldSlot+20520); // validam inputul
+
+			string valueLength = exec.Readtooltablecell(currentTool, varLength); //LengthXX
+			AS3.Setfieldtext(valueLength, oldSlot+20520); // afisam lungimea sculei din slot
+			AS3.Validatefield(oldSlot+20520); // validam inputul		
+
+			string valueType = exec.Readtooltablecell(currentTool, varType); //TypeXX
+			if (valueType == "RH") {
+				AS3.SetLED(true, (oldSlot+810)); //ledurile sunt de la 801 la 810
+			} else {
+				AS3.SetLED(false, (oldSlot+810)); //ledurile sunt de la 801 la 810
+			}
+					
+			// salvam tooltable-ul
+			exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
+		}
 
 		// scriem slotul in care a fost lasata scula si in Tooltable, field-ul SlotXX, unde XX este numarul sculei
 		string currentToolSlot = "Slot" + currentTool; // formatam stringul aferent campului unde se seteaza slotul sculei ce a fost in spindle - currentTool

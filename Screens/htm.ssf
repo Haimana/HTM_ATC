@@ -39904,7 +39904,9 @@ AS3.Loadpicture("BMP/HTM/8ec_slotLED_01.png", "BMP/HTM/8ec_slotLED_01.png",610, 
 AS3.Loadpicture("BMP/HTM/8ec_slotDisabled.png", "BMP/HTM/8ec_slotDisabled.png",888, false);
 AS3.Loadpicture("BMP/HTM/8ec_transparent.png", "BMP/HTM/8ec_transparent.png",999, false);
 AS3.Loadpicture("BMP/HTM/8ec_sensors_ofOff.png", "BMP/HTM/8ec_sensors_ofOff.png",889, false);
-AS3.Loadpicture("BMP/HTM/8ec_airBlow.png", "BMP/HTM/8ec_airBlow.png",890, true);
+AS3.Loadpicture("BMP/HTM/8ec_airBlow.png", "BMP/HTM/8ec_airBlow.png",890, false);
+AS3.Loadpicture("BMP/HTM/8ec_gotoTCP.png", "BMP/HTM/8ec_gotoTCP.png",891, false);
+AS3.Loadpicture("BMP/HTM/8ec_rhLED.png", "BMP/HTM/8ec_rhLED.png",892, true);
 //Load images for jog screen
 AS3jog.Loadpicture("BMP/Default2019/plus_up.png", "BMP/Default2019/plus_down.png",22, false);
 AS3jog.Loadpicture("BMP/Default2019/minus_up.png", "BMP/Default2019/minus_down.png",23, false);
@@ -40036,16 +40038,16 @@ AS3.Addbackground(0, 0, 1920, 508, 335, 100, 100);
 //Add backgrounds to jog screen
 AS3jog.Addbackground(0, 0, 400, 508, 62, 1, 1);
 //Select the startup layers for the main screen
-AS3.selectlayer(100);
 AS3.selectlayer(59);
 AS3.selectlayer(57);
 AS3.selectlayer(53);
 AS3.selectlayer(46);
-AS3.selectlayer(38);
+AS3.selectlayer(41);
 AS3.selectlayer(27);
 AS3.selectlayer(20);
 AS3.selectlayer(13);
-AS3.selectlayer(6);
+AS3.selectlayer(9);
+AS3.selectlayer(5);
 //Select the startup layers for the jog screen
 //Add buttons to main screen
 AS3.Addbutton(1120, 2, 54, 54, false, false, 63, 0, 2);
@@ -40124,7 +40126,7 @@ AS3.Addbutton(806, 424, 154, 40, false, false, 58, 189, 12);
 AS3.Addbutton(974, 424, 154, 40, false, false, 59, 190, 12);
 AS3.Addbutton(1294, 158, 216, 40, false, false, 60, 191, 12);
 AS3.Addbutton(1294, 272, 216, 40, false, false, 69, 192, 12);
-AS3.Addbutton(985, 857, 172, 40, false, false, 70, 193, 1);
+AS3.Addbutton(985, 857, 172, 40, true, false, 891, 193, 1);
 AS3.Addbutton(1164, 857, 172, 40, false, false, 71, 194, 1);
 AS3.Addbutton(1452, 296, 82, 46, false, false, 246, 195, 26);
 AS3.Addbutton(1524, 857, 172, 40, false, false, 73, 196, 1);
@@ -40545,7 +40547,7 @@ AS3.Addbutton(575, 234, 80, 40, false, false, 81, 773, 19);
 AS3.Addbutton(1131, 175, 32, 32, true, false, 161, 776, 2);
 AS3.Addbutton(894, 314, 336, 32, false, false, 162, 777, 10);
 AS3.Addbutton(1472, 406, 154, 40, false, false, 163, 779, 62);
-AS3.Addbutton(40, 459, 154, 40, false, false, 163, 779, 57);
+AS3.Addbutton(38, 457, 154, 40, false, false, 163, 779, 57);
 AS3.Addbutton(1696, 406, 154, 40, false, false, 164, 780, 62);
 AS3.Addbutton(1524, 762, 172, 40, false, false, 281, 783, 1);
 AS3.Addbutton(1127, 438, 40, 33, true, false, 300, 784, 2);
@@ -40674,8 +40676,9 @@ AS3.Addbutton(1575, 120, 72, 40, true, false, 606, 20607, 100);
 AS3.Addbutton(1650, 120, 72, 40, true, false, 607, 20608, 100);
 AS3.Addbutton(1725, 120, 72, 40, true, false, 608, 20609, 100);
 AS3.Addbutton(1800, 120, 72, 40, true, false, 609, 20610, 100);
-AS3.Addbutton(546, 390, 140, 40, true, false, 889, 20202, 100);
-AS3.Addbutton(919, 397, 140, 40, true, false, 890, 20203, 100);
+AS3.Addbutton(542, 395, 150, 30, true, false, 889, 20202, 100);
+AS3.Addbutton(913, 402, 150, 30, true, false, 890, 20203, 100);
+AS3.Addbutton(40, 408, 154, 40, false, false, 164, 780, 57);
 //Add buttons to jog screen
 AS3jog.Addbutton(253, 362, 65, 65, false, false, 33, 147, 1);
 AS3jog.Addbutton(176, 362, 65, 65, false, false, 34, 148, 1);
@@ -44004,6 +44007,9 @@ AS3.Addfield("", "Arial", "center", 25, -16777216, 992, 445, 72, "updown", 0, 17
 AS3.Setfieldtext("0", 20653);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 550, 445, 140, "fieldnb", 0, 3600000, 30019, 100);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 918, 263, 140, "fieldnb", 0, 10000, 30018, 100);
+AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 368, 140, "fieldnb", -1000000, 1000000, 30020, 100);
+AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 403, 140, "fieldnb", -1000000, 1000000, 30021, 100);
+AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 438, 140, "fieldnb", -1000000, 1000000, 30022, 100);
 //Add textfields to jog screen
 AS3jog.Addfield("", "Arial", "center", 22, -16777216, 90, 223, 71, "fieldnb", 0, 100, 913, 1);
 AS3jog.Setfieldtext("10", 913);
@@ -44193,7 +44199,17 @@ AS3.Addled(1240, 193, 156, 230, false, 888, 807, 57);
 AS3.Addled(1410, 193, 156, 230, false, 888, 808, 57);
 AS3.Addled(1580, 193, 156, 230, false, 888, 809, 57);
 AS3.Addled(1750, 193, 156, 230, false, 888, 810, 57);
+AS3.Addled(250, 275, 100, 15, false, 892, 811, 57);
 AS3.Addled(220, 193, 156, 230, false, 888, 801, 57);
+AS3.Addled(420, 275, 100, 15, false, 892, 812, 57);
+AS3.Addled(590, 275, 100, 15, false, 892, 813, 57);
+AS3.Addled(760, 275, 100, 15, false, 892, 814, 57);
+AS3.Addled(930, 275, 100, 15, false, 892, 815, 57);
+AS3.Addled(1100, 275, 100, 15, false, 892, 816, 57);
+AS3.Addled(1270, 275, 100, 15, false, 892, 817, 57);
+AS3.Addled(1440, 275, 100, 15, false, 892, 818, 57);
+AS3.Addled(1610, 275, 100, 15, false, 892, 819, 57);
+AS3.Addled(1780, 275, 100, 15, false, 892, 820, 57);
 //Add LEDs to jog screen
 //Add labels to main screen
 AS3.Addlabel("File:", "Arial", "left", 20, -1, 1180, 25, 2);
