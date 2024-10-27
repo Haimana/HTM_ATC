@@ -32,6 +32,13 @@ AS3.Setfieldtext(setupValue, i);
 AS3.Validatefield(i);
 }
 
+// citim sensors pins and ports la pornirea programului si le afisam in fields-uri
+for (int i = 20611; i < 20631; i++) {
+string setupValue = exec.Readkey("UserTextfields", Convert.ToString(i), "0");
+AS3.Setfieldtext(setupValue, i); 
+AS3.Validatefield(i);
+}
+
 // citim starea sloturilor pornirea programului si gestionam starea sloturilor
 for ( int slotNo = 1; slotNo < 11; slotNo++) 
 {
