@@ -297,12 +297,14 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	
 	AS3.SetLED(true, (newSlot+820)); // aprindem LED de scula activa pe oldSlot
 
-	// Move back to start point
-	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos);
-	while(exec.IsMoving()){}
 		
 	}
 	
+	// Move back to start point
+	
+	exec.Code("G43 H" + newTool);
+	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos);
+	while(exec.IsMoving()){}
 
 
 
