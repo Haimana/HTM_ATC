@@ -27,14 +27,16 @@ public void RunMacro(int slotNo) {
 		int oldTool = 0;
         int spindleTool = exec.Getcurrenttool(); // Preluăm scula curentă
         var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
+		var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+		var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
 
 		//definire mesaj sonor de eroare
 		System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
 
 		//preluam scula din slot in baza tooltable. cautam scula care are fieldul SlotXX si determinam XX care este nr sculei
 		for (int i = 1; i < 97; i++) {
-			int y = Convert.ToInt32(exec.Readtooltablecell(i, varSlot));
-			if (y == slotNo) {
+			int valueSlot = Convert.ToInt32(exec.Readtooltablecell(i, varSlot));
+			if (valueSlot == slotNo) {
 				oldTool = i;
 				i = 97; //iesim cand gasim scula aferenta slotului slotNo
 			}
@@ -132,12 +134,20 @@ public void RunMacro(int slotNo) {
 						}
 				
                     //scriem in tooltable noul slot ptr scula veche
-                    exec.Writetooltablecell(oldTool, varSlot, Convert.ToString(0)); // adica 0 ptr ca scula a fost scoasa din rack
+                    exec.Writetooltablecell(oldTool, varSlot, "0"); // adica 0 ptr ca scula a fost scoasa din rack
                     //scriem in tooltable noul slot ptr scula nou alocata 
                     exec.Writetooltablecell(newTool, varSlot, Convert.ToString(slotNo)); // 
                     // salvam tooltable-ul
                     exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
 
+					string valueDiameter = exec.Readtooltablecell(newTool, varDiameter); //DiameterXX
+					AS3.Setfieldtext(valueDiameter, slotNo+20510); // afisam diametrul sculei din slot
+					AS3.Validatefield(slotNo+20520); // validam inputul
+
+					string valueLength = exec.Readtooltablecell(newTool, varLength); //LengthXX
+					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
+					AS3.Validatefield(slotNo+20520); // validam inputul
+					
 					//afisam numarul sculei in screenset
 					AS3.Setfield(newTool, (slotNo + 20500));
 

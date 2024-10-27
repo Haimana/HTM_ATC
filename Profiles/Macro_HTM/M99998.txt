@@ -42,18 +42,33 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 		AS3.SetLED(true, (slotNo+800)); //ledurile sunt de la 801 la 810
 		
 		// initiem campurile cu 0. rescriem valoarea daca regasim scula alocata slotului
-		AS3.Setfieldtext("0", slotNo+20500);
+		//AS3.Setfieldtext("0", slotNo+20500);
+		//AS3.Setfieldtext("0", slotNo+20510);
+		//AS3.Setfieldtext("0", slotNo+20520);
 		
 		// acum cautam daca slotNo se regaseste in vreo variabila tool (SlotXX) din tooltable
 		for (int i = 1; i < 97; i++) {
 			
-			// variabila ptr preluarea slotului aferent sculei
+			// variabile ptr preluarea slotului aferent sculei si detaliile sculei
 			var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot;
-			int y = Convert.ToInt32(exec.Readtooltablecell(i, varSlot)); //SlotXX
-			if (y == slotNo) // daca slotNo se regaseste setat ptr o anumita scula, afisam scula in acel slotNo
+			var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+			var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
+			
+			int valueSlot = Convert.ToInt32(exec.Readtooltablecell(i, varSlot)); //SlotXX
+			string valueLength = exec.Readtooltablecell(i, varLength); //LengthXX
+			string valueDiameter = exec.Readtooltablecell(i, varDiameter); //DiameterXX
+
+			if (valueSlot == slotNo) // daca slotNo se regaseste setat ptr o anumita scula, afisam scula in acel slotNo
 				{
 					AS3.Setfieldtext(Convert.ToString(i), slotNo+20500); // punem scula in slotul respectiv
-					AS3.Validatefield(slotNo); // validam inputul
+					AS3.Validatefield(slotNo+20500); // validam inputul
+					
+					AS3.Setfieldtext(valueDiameter, slotNo+20510); // afisam diametrul sculei din slot
+					AS3.Validatefield(slotNo+20520); // validam inputul
+
+					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
+					AS3.Validatefield(slotNo+20520); // validam inputul
+					
 					i = 97; //iesim din cautare imediat ce am gasit slotul alocat unei anumite scule
 				} 
 			AS3.Validatefield(slotNo); // validam inputul
