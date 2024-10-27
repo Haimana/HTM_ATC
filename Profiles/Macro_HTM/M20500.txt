@@ -111,13 +111,13 @@ public void RunMacro(int slotNo) {
                         return; 
                     }
 
-                    // Verificăm dacă scula dorită este deja în spindle
-                    if (spindleTool == newTool && newTool > 0) { 
-                        exec.AddStatusmessage("Tool #" + newTool + " loaded in spindle! Aborting!");
-						errorSound.Play();
-                        isMacroRunning = false; // Resetăm starea
-                        return; 
-                    }
+                    // // Verificăm dacă scula dorită este deja în spindle
+                    // if (spindleTool == newTool && newTool > 0) { 
+                        // exec.AddStatusmessage("Tool #" + newTool + " loaded in spindle! Aborting!");
+						// errorSound.Play();
+                        // isMacroRunning = false; // Resetăm starea
+                        // return; 
+                    // }
 				
 					//verificam existenta sculei dorite in magazie
 					for (int i = 20501; i < 20511; i++)
@@ -155,6 +155,8 @@ public void RunMacro(int slotNo) {
 					} else {
 						AS3.SetLED(false, (slotNo+810)); //ledurile sunt de la 801 la 810
 					}
+
+					if (newTool ==  exec.Getcurrenttool()) { AS3.SetLED(true, (slotNo+820)); } else { AS3.SetLED(false, (slotNo+820)); } //activam ledul de scula activa
 
 					//afisam numarul sculei in screenset
 					AS3.Setfield(newTool, (slotNo + 20500));

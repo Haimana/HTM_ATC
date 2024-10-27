@@ -25,6 +25,14 @@ else {
 	exec.AddStatusmessage( "rackOrientation not defined" );
 	}
 
+// preluam scula activa si o setam in spindle
+exec.Setcurrenttool(Convert.ToInt32(exec.Readkey("UserTextfields", "20222", "0")));;
+	
+// butonul ptr activare senzori la sloturi
+if (exec.Readkey("UserTextfields", "20202", "false")=="true") AS3.Switchbutton(true, 20202);
+// butonul ptr activare air blow
+if (exec.Readkey("UserTextfields", "20203", "false")=="true") AS3.Switchbutton(true, 20203);
+
 // citim variabilele la pornirea programului si le afisam in fields-uri
 for (int i = 30010; i < 30030; i++) {
 string setupValue = exec.Readkey("UserTextfields", Convert.ToString(i), "0.000");
@@ -86,6 +94,8 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 						AS3.SetLED(false, (slotNo+810)); //ledurile sunt de la 801 la 810
 					}
 					
+					if (i ==  exec.Getcurrenttool()) AS3.SetLED(true, (slotNo+820)); //activam ledul de scula activa
+						
 					i = 97; //iesim din cautare imediat ce am gasit slotul alocat unei anumite scule
 				} 
 			AS3.Validatefield(slotNo); // validam inputul
