@@ -56,6 +56,8 @@ public void RunMacro(int slotNo) {
 				// AS3.Validatefield(slotNo+20520); // validam inputul
 				
 				AS3.SetLED(false, (slotNo+800)); //LED disable - ledurile sunt de la 801 la 810	
+				AS3.SetLED(false, (slotNo+810)); //LED disable - ledurile sunt de la 801 la 810	
+				AS3.SetLED(false, (slotNo+820)); //LED disable - ledurile sunt de la 801 la 810	
                 exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
 			}
 		}
@@ -82,6 +84,7 @@ public void RunMacro(int slotNo) {
 				AS3.Validatefield(slotNo+20520); // validam inputul
 				
 				AS3.SetLED(false, (slotNo+810)); //dezactivam ledurile de RH
+				AS3.SetLED(false, (slotNo+820)); //dezactivam ledurile de active tool
 
 
         // Resetăm starea macro-ului

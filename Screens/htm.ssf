@@ -40048,7 +40048,7 @@ AS3.selectlayer(27);
 AS3.selectlayer(20);
 AS3.selectlayer(13);
 AS3.selectlayer(9);
-AS3.selectlayer(5);
+AS3.selectlayer(2);
 //Select the startup layers for the jog screen
 //Add buttons to main screen
 AS3.Addbutton(1120, 2, 54, 54, false, false, 63, 0, 2);
@@ -44201,7 +44201,7 @@ AS3.Addled(1410, 193, 156, 230, false, 888, 808, 57);
 AS3.Addled(1580, 193, 156, 230, false, 888, 809, 57);
 AS3.Addled(1750, 193, 156, 230, false, 888, 810, 57);
 AS3.Addled(250, 275, 100, 15, false, 892, 811, 57);
-AS3.Addled(220, 493, 156, 230, false, 888, 801, 57);
+AS3.Addled(220, 193, 156, 230, false, 888, 801, 57);
 AS3.Addled(420, 275, 100, 15, false, 892, 812, 57);
 AS3.Addled(590, 275, 100, 15, false, 892, 813, 57);
 AS3.Addled(760, 275, 100, 15, false, 892, 814, 57);

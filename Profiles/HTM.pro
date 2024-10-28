@@ -1299,7 +1299,7 @@ MachinecoordsA=0
 MachinecoordsB=0
 MachinecoordsC=0
 [Tooloffsetcoords]
-TooloffsetZ=10
+TooloffsetZ=0
 TooloffsetX=0
 [Systemmessages]
 Message0=Valid license key was not found! Application will run in demo mode!
@@ -2654,8 +2654,8 @@ TotalM7s=0
 TotalM8s=0
 Totaltimedays=1
 Totaltimehours=10
-Totaltimeminutes=17
-Totaltimeseconds=40
+Totaltimeminutes=31
+Totaltimeseconds=45
 M3timedays=0
 M3timehours=0
 M3timeminutes=4
