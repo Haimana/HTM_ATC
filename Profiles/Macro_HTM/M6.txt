@@ -40,12 +40,14 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	double tcfeed = AS3.Getfielddouble(30017);		//feedrate la care se face schimbarea sculelor
 	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
 	int delay = Convert.ToInt32(AS3.Getfield(30018));		//delay intre operatiuni
-
-	// Get current XY machine coordinates to return to this position at the end of the macro
-	double Xoriginalpos = exec.GetXmachpos();
-	double Yoriginalpos = exec.GetYmachpos();
 	
-    var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
+	// Define position vars for return to this position at the end of the macro
+	double Xoriginalpos = exec.GetXmachpos();
+	double Yoriginalpos= exec.GetYmachpos();
+	double Zoriginalpos= exec.GetYmachpos();
+	exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
+
+	var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
 	var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 	var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
 	var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
@@ -95,25 +97,31 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	if ((oldSlot > 0) && (currentTool > 0)) {
 		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
 		
-		// moving spindle to clear Z for ATC operations
+		// moving spindle to safeZ for ATC operations
 		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
+
+		// Get current XY machine coordinates to return to this position at the end of the macro
+		Xoriginalpos = exec.GetXmachpos();
+		Yoriginalpos = exec.GetYmachpos();
+		Zoriginalpos = exec.GetZmachpos();
+		exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
 		
 		// cheking slot sensors, function will report error status if sensors are enabled
 		
 		// moving spindle in front of receiver slot
 		exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
-		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack)); 
+		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack) + rackAxis2 + clearRack); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
-		// moving spindle close to receiver slot on clearRack
-		exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
-		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
-		while(exec.IsMoving()){}
-		exec.Wait(delay); // Wait 500msec
+		// // moving spindle close to receiver slot on clearRack
+		// exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
+		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		// while(exec.IsMoving()){}
+		// exec.Wait(delay); // Wait 500msec
 		
 		// incepem suflarea aerului ptr curatare slot receptor daca Air Blow este activat			
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
@@ -263,7 +271,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 		exec.Wait(delay); // Wait 500msec
 		
 		// moving spindle above emmiter slot
-		exec.AddStatusmessage("Moving in above slot at " + rackAxis + (rackX+(newSlot-1)*stepRack));
+		exec.AddStatusmessage("Moving above slot at " + rackAxis + (rackX+(newSlot-1)*stepRack));
 		exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec		
@@ -294,6 +302,12 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 			// de adaugat cod ptr actionare electrovalva
 		}
 		
+		// moving spindle to clearRack
+		exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
+		exec.Code("G01 G53 " + rackAxis2 + clearRack); 
+		while(exec.IsMoving()){}
+		exec.Wait(delay); // Wait 500msec
+
 		// moving spindle to clear Z for ATC operations
 		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
@@ -313,7 +327,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	// Move back to start point
 	
 	exec.Code("G43 H" + newTool);
-	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos);
+	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos + " Z" + Zoriginalpos);
 	while(exec.IsMoving()){}
 
 

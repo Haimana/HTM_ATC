@@ -26,7 +26,9 @@ else {
 	}
 
 // preluam scula activa si o setam in spindle
-exec.Setcurrenttool(Convert.ToInt32(exec.Readkey("UserTextfields", "20222", "0")));;
+int savedTool = Convert.ToInt32(exec.Readkey("UserTextfields", "20222", "0"));
+exec.Setcurrenttool(Convert.ToInt32(savedTool);
+exec.Code("G43 H" + savedTool);
 	
 // butonul ptr activare senzori la sloturi
 if (exec.Readkey("UserTextfields", "20202", "false")=="true") AS3.Switchbutton(true, 20202);
