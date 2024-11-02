@@ -1,19 +1,29 @@
 
-//exec.AddStatusmessage("M6 Start");
-exec.Stopspin(); 	//Make sure the spindle is OFF
-exec.Code("M09"); 	//Make sure coolant is OFF
+	//exec.AddStatusmessage("M6 Start");
+	exec.Stopspin(); 	//Make sure the spindle is OFF
+	exec.Code("M09"); 	//Make sure coolant is OFF
 
-//definire mesaj sonor de eroare
-System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+	//definire mesaj sonor de eroare
+	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
 
-if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
-{
-	exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
-	errorSound.Play();
-	exec.Stop();
-	return;
-}
+	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
+	{
+		exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
 
+	
+	// verificam daca exista aer in instalatie, iesim din script daca nu
+	if (!Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
+		exec.AddStatusmessage("ATC - Cannot start! No Air Pressure");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
+	
+		
 	//declarare variabile
   	int newtool;		//scula noua ceruta in spindle
   	int oldtool;		//scula existenta in spindle
@@ -50,7 +60,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	double Xoriginalpos = exec.GetXmachpos();
 	double Yoriginalpos= exec.GetYmachpos();
 	double Zoriginalpos= exec.GetZmachpos();
-	exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
+	//exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
 
 	var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
 	var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
@@ -65,13 +75,13 @@ for (int i = 1; i < 50; i++)
 //MessageBox.Show("" + Ldata[1].Isactive); //Shows the Isactive property of the first layer in the List.
 	if (Ldata[i].Isactive) {
 		if (Ldata[i].Parentnumber > 1){
-			exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
-			exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
+			// exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
+			// exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
 			// exec.AddStatusmessage ("Parent Parentnumber = " + Ldata[Ldata[i].Parentnumber].Parentnumber);
 			i = 1000;
 		} else {
-			exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
-			exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
+			// exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
+			// exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
 			i = 1000;
 		}
 	}
@@ -88,6 +98,9 @@ for (int i = 1; i < 50; i++)
 	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
 
+	int drawbarPort;
+	int drawbarPin;
+	
 //////////////////////////////////////////////////////////////////////////////
 // case 0 - requested tool already loaded - don't have to load same tool again
 	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
@@ -492,3 +505,32 @@ else
 
 */
 
+
+
+#Events
+
+bool Getinpin(int port,int pin) {
+   bool pinread = AS3.GetLED(LEDnum(port,pin));
+   return pinread;
+}
+
+int LEDnum(int port,int pin) {
+  //Port #1 Pin 1 - 17 = LED   1 - 17
+  //Port #2 Pin 1 - 17 = LED  69 - 85
+  //Port #3 Pin 1 - 17 = LED  86 - 102
+  //Port #4 Pin 1 - 17 = LED 103 - 119
+  //Port #5 Pin 1 - 17 = LED 120 - 136
+  int LED = 0;
+   
+  if ((port < 1) || (port > 5) || (pin < 1) || (pin > 17)) {
+     LED = -1;
+  } else {
+      if (port == 2) { LED = 68; }
+      if (port == 3) { LED = 85; }
+      if (port == 4) { LED = 102; }
+      if (port == 5) { LED = 119; }
+ 
+      LED += pin;
+  }
+  return LED;
+}
