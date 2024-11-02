@@ -16,7 +16,7 @@
 
 	
 	// verificam daca exista aer in instalatie, iesim din script daca nu
-	if (!Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
+	if (Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
 		exec.AddStatusmessage("ATC - Cannot start! No Air Pressure");
 		errorSound.Play();
 		exec.Stop();
