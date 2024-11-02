@@ -28,6 +28,12 @@
   	int newtool;		//scula noua ceruta in spindle
   	int oldtool;		//scula existenta in spindle
 	
+	// spindle outputs
+	int drawbarPort = AS3.Getfiledint(20650);
+	int drawbarPin = AS3.Getfiledint(20651);
+	int airPort = AS3.Getfiledint(20652);
+	int airPin = AS3.Getfiledint(20653);
+	
   	int newSlot = 0;		//slotul in care se regaseste newtool, daca exista
   	int oldSlot = 0;		//slotul in care se regaseste oldtool, daca exista
 	
@@ -98,9 +104,7 @@ for (int i = 1; i < 50; i++)
 	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
 
-	int drawbarPort;
-	int drawbarPin;
-	
+
 //////////////////////////////////////////////////////////////////////////////
 // case 0 - requested tool already loaded - don't have to load same tool again
 	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
@@ -142,7 +146,7 @@ for (int i = 1; i < 50; i++)
 		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
 		
 		// moving spindle to safeZ for ATC operations
-		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
+		//exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
@@ -156,7 +160,7 @@ for (int i = 1; i < 50; i++)
 		// cheking slot sensors, function will report error status if sensors are enabled
 		
 		// moving spindle in front of receiver slot
-		exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
+		//exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
 		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack) + rackAxis2 + clearRack); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
@@ -169,7 +173,8 @@ for (int i = 1; i < 50; i++)
 		
 		// incepem suflarea aerului ptr curatare slot receptor daca Air Blow este activat			
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			exec.AddStatusmessage("---Blowing air for fork cleaning");
+			//exec.AddStatusmessage("---Blowing air for fork cleaning");
+			exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
 			// de adaugat cod ptr actionare electrovalva
 		}
 		
@@ -187,7 +192,7 @@ for (int i = 1; i < 50; i++)
 		
 		//activating drawbar pentru eliberare scula
 		exec.AddStatusmessage("---Activating drawbar");
-		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
+		//exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
 		exec.Wait(delay); // Wait 500msec
 
 		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
@@ -204,7 +209,8 @@ for (int i = 1; i < 50; i++)
 		
 		//oprire aer
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			exec.AddStatusmessage("---Stop blowing air...");
+			// exec.AddStatusmessage("---Stop blowing air...");
+			exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
 			// de adaugat codul ptr control output
 		}
 		
@@ -216,7 +222,7 @@ for (int i = 1; i < 50; i++)
 		
 		// cuplare scula
 		exec.AddStatusmessage("---Deactivating drawbar");
-		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
+		//exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
 		
 		
 		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
@@ -322,11 +328,12 @@ for (int i = 1; i < 50; i++)
 
 		//activating drawbar pentru cuplare scula scula
 		exec.AddStatusmessage("---Activating drawbar");
-		exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
+		//exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
 		
 		// incepem suflarea aerului ptr curatare slot receptor			
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			exec.AddStatusmessage("---Blowing air for fork cleaning");
+			//exec.AddStatusmessage("---Blowing air for fork cleaning");
+			exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
 			// de adaugat cod ptr actionare electrovalva
 		}
 
@@ -342,7 +349,8 @@ for (int i = 1; i < 50; i++)
 		
 		//oprire aer
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			exec.AddStatusmessage("---Stop blowing air");
+			// exec.AddStatusmessage("---Stop blowing air");
+			exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
 			// de adaugat cod ptr actionare electrovalva
 		}
 		
