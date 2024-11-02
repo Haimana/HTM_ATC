@@ -29,6 +29,10 @@ else {
 int savedTool = Convert.ToInt32(exec.Readkey("UserTextfields", "20222", "0"));
 exec.Setcurrenttool(Convert.ToInt32(savedTool));
 exec.Code("G43 H" + savedTool);
+
+// preluam ultima viteza de jog (procent)
+AS3jog.Setfieldtext(exec.Readkey("UserTextfields", "20913", "25"), 913); // Set Jog Percent
+AS3jog.Validatefield(913);
 	
 // butonul ptr activare senzori la sloturi
 if (exec.Readkey("UserTextfields", "20202", "false")=="true") AS3.Switchbutton(true, 20202);
