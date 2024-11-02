@@ -29,10 +29,10 @@
   	int oldtool;		//scula existenta in spindle
 	
 	// spindle outputs
-	int drawbarPort = AS3.Getfiledint(20650);
-	int drawbarPin = AS3.Getfiledint(20651);
-	int airPort = AS3.Getfiledint(20652);
-	int airPin = AS3.Getfiledint(20653);
+	int drawbarPort = AS3.Getfieldint(20650);
+	int drawbarPin = AS3.Getfieldint(20651);
+	int airPort = AS3.Getfieldint(20652);
+	int airPin = AS3.Getfieldint(20653);
 	
   	int newSlot = 0;		//slotul in care se regaseste newtool, daca exista
   	int oldSlot = 0;		//slotul in care se regaseste oldtool, daca exista
