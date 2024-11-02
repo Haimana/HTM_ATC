@@ -1,0 +1,4 @@
+//This is the destructor macro which executes once, on the application close event
+
+// salvam scula din spindle
+exec.Writekey("UserTextfields", "20222", (AS3.Getfield(897))); // salvam starea slotului prin scriere 0 in profile

@@ -26,6 +26,11 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	//Dim cnt As Integer		'variabila ptr generare timeout in asteptarea semnalelor de la spindle
 	
 	int rackSize = 10;	//variabila ptr setarea numarului total de sloturi in magazie
+
+	// variabile ptr determinarea initLayer si initParent
+	int initLayer = 1;
+	int initParent = 1;
+	
 	bool updateDetails = false;
 	
 	string rackAxis = AS3.Getfield(30000);	//determinam pe ce axa este aliniata magazia de scule (X sau Y)
@@ -51,6 +56,26 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 	var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
 	var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
+
+	// preluam layernumber si parentnumber din care s-a initiat comanda M6 ptr intoarcere dupa M6
+	List<Plugininterface.Datatypes.Layerdatastruct> Ldata = exec.Getlayerslist(true);
+	
+for (int i = 1; i < 50; i++)
+{
+//MessageBox.Show("" + Ldata[1].Isactive); //Shows the Isactive property of the first layer in the List.
+	if (Ldata[i].Isactive) {
+		if (Ldata[i].Parentnumber > 1){
+			exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
+			exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
+			// exec.AddStatusmessage ("Parent Parentnumber = " + Ldata[Ldata[i].Parentnumber].Parentnumber);
+			i = 1000;
+		} else {
+			exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
+			exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
+			i = 1000;
+		}
+	}
+}
 	
 	//checking for invalid values (unconfigured ATC system)
 	if ((stepRack == 0) || (safeZ == rackZ) || (tcfeed == 0)) { 
@@ -66,6 +91,12 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 //////////////////////////////////////////////////////////////////////////////
 // case 0 - requested tool already loaded - don't have to load same tool again
 	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
+
+
+	// ne mutam in pagina de ATC
+	AS3.selectlayer(5); // prima data in 5 (parentlayer-ul lui 57)
+	AS3.selectlayer(57);	
+
 
 // case 1 - not same tool, searching if currentTool have own slot already (was previously declared in rack)
 	// cautam, daca exista deja, pozitia lui oldtool in sloturi
@@ -332,6 +363,9 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 
 
 
+	// ne intoarcem in screen-ul din care a fost initiata comanda M6 
+//	AS3.selectlayer(initParent); // prima data in 5 (parentlayer-ul lui 57)
+//	AS3.selectlayer(initLayer);	
 	
 exec.AddStatusmessage("M6 Finished");
 return;
