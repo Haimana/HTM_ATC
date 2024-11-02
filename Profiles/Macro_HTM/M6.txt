@@ -192,21 +192,24 @@ for (int i = 1; i < 50; i++)
 		
 		//activating drawbar pentru eliberare scula
 		exec.AddStatusmessage("---Activating drawbar");
-		//exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
+		exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
 		exec.Wait(delay); // Wait 500msec
 
 		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
 		if (emptyZ != safeZ) {
-			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
+			// exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
 			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		} else { // when emptyZ == safeZ
-			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
+			// exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		}
 		exec.Wait(delay); // Wait 500msec
 		
+		// exec.AddStatusmessage("---Deactivating drawbar");
+		exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
+
 		//oprire aer
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
 			// exec.AddStatusmessage("---Stop blowing air...");
@@ -219,10 +222,6 @@ for (int i = 1; i < 50; i++)
 		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
 		// while(exec.IsMoving()){}
 		
-		
-		// cuplare scula
-		exec.AddStatusmessage("---Deactivating drawbar");
-		//exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
 		
 		
 		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
@@ -310,25 +309,22 @@ for (int i = 1; i < 50; i++)
 
 		//aici trebuie adaugata coborarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
 		if (emptyZ != safeZ) {
-			exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
+			// exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
 			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		} else { // when emptyZ == safeZ
-			exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
+			// exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 		}
 		exec.Wait(delay); // Wait 500msec
 		
 		// moving spindle above emmiter slot
-		exec.AddStatusmessage("Moving above slot at " + rackAxis + (rackX+(newSlot-1)*stepRack));
+		// exec.AddStatusmessage("Moving above slot at " + rackAxis + (rackX+(newSlot-1)*stepRack));
 		exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec		
 
-		//activating drawbar pentru cuplare scula scula
-		exec.AddStatusmessage("---Activating drawbar");
-		//exec.Setoutpin(1, 16); // Open the chuck with pneumatic valve
 		
 		// incepem suflarea aerului ptr curatare slot receptor			
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
@@ -337,15 +333,19 @@ for (int i = 1; i < 50; i++)
 			// de adaugat cod ptr actionare electrovalva
 		}
 
+		//activating drawbar pentru cuplare scula scula
+		// exec.AddStatusmessage("---Activating drawbar");
+		exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
+
 		//lowering spindle to loading Z position (rackZ)
-		exec.AddStatusmessage("Moving to rackZ Z" + rackZ);
+		// exec.AddStatusmessage("Moving to rackZ Z" + rackZ);
 		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
 		// cuplare scula
-		exec.AddStatusmessage("---Deactivating drawbar");
-		exec.Clroutpin(1, 16); // Close the chuck with pneumatic valve
+		// exec.AddStatusmessage("---Deactivating drawbar");
+		exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
 		
 		//oprire aer
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
@@ -355,7 +355,7 @@ for (int i = 1; i < 50; i++)
 		}
 		
 		// moving spindle to clearRack
-		exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
+		// exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
 		exec.Code("G01 G53 " + rackAxis2 + clearRack); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
