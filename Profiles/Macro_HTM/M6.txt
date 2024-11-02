@@ -353,6 +353,7 @@ for (int i = 1; i < 50; i++)
 			exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
 			// de adaugat cod ptr actionare electrovalva
 		}
+		exec.Wait(delay); // Wait 500msec
 		
 		// moving spindle to clearRack
 		// exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
@@ -361,7 +362,7 @@ for (int i = 1; i < 50; i++)
 		exec.Wait(delay); // Wait 500msec
 
 		// moving spindle to clear Z for ATC operations
-		exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
+		// exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
