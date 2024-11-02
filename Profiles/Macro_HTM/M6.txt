@@ -49,7 +49,7 @@ if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not h
 	// Define position vars for return to this position at the end of the macro
 	double Xoriginalpos = exec.GetXmachpos();
 	double Yoriginalpos= exec.GetYmachpos();
-	double Zoriginalpos= exec.GetYmachpos();
+	double Zoriginalpos= exec.GetZmachpos();
 	exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
 
 	var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
