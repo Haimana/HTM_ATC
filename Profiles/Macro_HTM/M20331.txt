@@ -1,0 +1,75 @@
+// macro for measuring tools in TCP. M20330 have to be run first (once)
+// M20330 will provide the mcZpos of TCP sensor
+
+	//definire mesaj sonor de eroare
+	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+	
+	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
+	{
+		exec.AddStatusmessage("Measure TCP Z measuring cannot start! One or more axis are NOT REFERENCED");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
+	
+// preluam coordonatele TCP (Tool Change Position) din ATC setup
+double tcpXpos = AS3.Getfielddouble(30020);
+double tcpYpos = AS3.Getfielddouble(30021);
+double tcpZpos = AS3.Getfielddouble(30022);
+
+int minZlimit = AS3.Getfieldint(41);
+int FeedrateSlow = AS3.Getfieldint(2710);
+int FeedrateFast = AS3.Getfieldint(2709);
+
+// definim feed ptr masurare scula
+int toolMeasureFeed = 1000;
+double retractforsecondmeasurement = AS3.Getfielddouble(2706);
+
+// pozitia mcZpos - adica unde este senzorul ptr masurat scule, salvat de macro M20330
+double mcZpos = Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "0"));
+
+// preluam nr sculei din spindle, adica scula pe care o masuram
+int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
+
+bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first with Fast and second with Slow feedrates
+exec.AddStatusmessage(Convert.ToString(dodualcycle));
+
+var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+
+// ne mutam in tcpZpos
+exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
+exec.Code("G53 G1 F" + toolMeasureFeed + " X" + tcpXpos + " Y" + tcpYpos);
+while(exec.IsMoving()){}
+
+if(!dodualcycle)
+{
+  exec.Code("G31 Z" + minZlimit + "F" + FeedrateFast); // Do the Z probing with Fast feedrate first
+  while(exec.IsMoving()){}
+
+  exec.Code("G91 G0 Z" + retractforsecondmeasurement);
+  exec.Code("G90"); 
+}
+while(exec.IsMoving()){}
+
+//coboram pana la touch, maxim pe cota minimZ definita in axe
+exec.Code("G31 F" + FeedrateSlow + " Z" + minZlimit);
+while(exec.IsMoving()){}
+
+double currentZpos = exec.GetZmachpos();
+
+	double currenToolOffset = Math.Abs(mcZpos) + exec.GetZmachpos();
+	exec.AddStatusmessage("toolLength = " + currenToolOffset);
+
+    exec.Writetooltablecell(currentTool, varLength, Convert.ToString(currenToolOffset)); // 
+    exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
+	exec.Code("M99998");  //refreshing data
+	exec.Code("G43 H" + currentTool);
+
+	// salvam mcZpos in profile file	
+	//exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
+		exec.Wait(500); // Wait 500msec
+	
+	//ne intoarcem in tcpZpos
+exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
+
+//

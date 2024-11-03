@@ -1,0 +1,66 @@
+// macro for calibrating TCP sensor, the mcZ position
+// will be need a "Master Tool" with known length
+// have to be done once per setup or re-done if the sensor is repositioned
+
+	//definire mesaj sonor de eroare
+	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+	
+	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
+	{
+		exec.AddStatusmessage("Measure TCP Z measuring cannot start! One or more axis are NOT REFERENCED");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
+	
+// preluam coordonatele TCP (Tool Change Position) din ATC setup
+double tcpXpos = AS3.Getfielddouble(30020);
+double tcpYpos = AS3.Getfielddouble(30021);
+double tcpZpos = AS3.Getfielddouble(30022);
+
+int minZlimit = AS3.Getfieldint(41);
+int FeedrateSlow = AS3.Getfieldint(2710);
+int FeedrateFast = AS3.Getfieldint(2709);
+
+// definim feed ptr masurare scula
+int toolMeasureFeed = 1000;
+double retractforsecondmeasurement = AS3.Getfielddouble(2706);
+
+// lungimea master tool
+int masterLength = -15;
+
+bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first with Fast and second with Slow feedrates
+exec.AddStatusmessage(Convert.ToString(dodualcycle));
+
+
+// ne mutam in tcpZpos
+exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
+exec.Code("G53 G1 F" + toolMeasureFeed + " X" + tcpXpos + " Y" + tcpYpos);
+while(exec.IsMoving()){}
+
+if(!dodualcycle)
+{
+  exec.Code("G31 Z" + minZlimit + "F" + FeedrateFast); // Do the Z probing with Fast feedrate first
+  while(exec.IsMoving()){}
+
+  exec.Code("G91 G0 Z" + retractforsecondmeasurement);
+  exec.Code("G90"); 
+}
+while(exec.IsMoving()){}
+
+//coboram pana la touch, maxim pe cota minimZ definita in axe
+exec.Code("G31 F" + FeedrateSlow + " Z" + minZlimit);
+while(exec.IsMoving()){}
+
+	double mcZpos = exec.GetZmachpos();
+	exec.AddStatusmessage("mcZpos = " + mcZpos);
+	mcZpos = exec.GetZmachpos() - masterLength;
+	exec.AddStatusmessage("mcZpos + masterLength = " + mcZpos);
+
+	// salvam mcZpos in profile file	
+	exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
+		exec.Wait(500); // Wait 500msec
+	
+exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
+
+//
