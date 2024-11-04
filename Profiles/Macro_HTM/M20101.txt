@@ -14,7 +14,7 @@ for (int i = 0; i < 10; i++) {
 
 
 
-#Events
+//#Events
 
 bool Getinpin(int port,int pin) {
    bool pinread = AS3.GetLED(LEDnum(port,pin));
@@ -30,7 +30,7 @@ int LEDnum(int port,int pin) {
   int LED = 0;
    
   if ((port < 1) || (port > 5) || (pin < 1) || (pin > 17)) {
-     LED = -1;
+     LED = 0;
   } else {
       if (port == 2) { LED = 68; }
       if (port == 3) { LED = 85; }

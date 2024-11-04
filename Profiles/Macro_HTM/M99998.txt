@@ -112,42 +112,5 @@ for ( int slotNo = 1; slotNo < 11; slotNo++)
 	}
 
 }
+
 exec.AddStatusmessage("Ready!");
-
-
-/* metoda veche de preluare a sculelor aferente sloturilor. 
-*	se foloseau variabilele din campurile 20501-20510. 
-*	metoda noua preia sloturile din tooltable 
-
-
-// citim starea sloturilor pornirea programului si gestionam starea sloturilor
-for (int i = 20601; i < 20611; i++) {
-string slotNo = exec.Readkey("UserTextfields", Convert.ToString(i), "0");
-string toolInSlot = exec.Readkey("UserTextfields", Convert.ToString(i-100), "0");
-if (slotNo == "1") 
-	{
-		AS3.Switchbutton(true, i); // setam slotul ca fiind activ
-		AS3.Setfieldtext(toolInSlot, i-100); // punem scula in slotul respectiv
-		AS3.Validatefield(i-100); // validam inputul
-		AS3.SetLED(true, (i-19800)); //ledurile sunt de la 801 la 810, adica 20601-19800=801
-		
-		//afisam tipul de scula preluat din campul TypeXX, unde XX este nr sculei
-		//formatam stringul TypeXX
-		string toolNoType = "Type" + toolInSlot; // formatam stringul aferent campului Type - newTool
-		//actualizam fieldurile aferente afisarii tipului de scula - 20601-80=20521
-		AS3.Setfieldtext((exec.Readkey("Tooltablevalues",toolNoType,"-")),i-80);
-	}
-else if (slotNo == "0")
-	{ 
-		AS3.Switchbutton(false, i); 
-		AS3.Setfieldtext("0", i-100); // scriem 0 in slot deactivat
-		AS3.Validatefield(i-100); // validam inputul
-		AS3.SetLED(false, (i-19800)); //LED Disable - ledurile sunt de la 801 la 810, adica 20601-19800=801
-	}
-AS3.Setfieldtext(slotNo, i); 
-AS3.Validatefield(i);
-//exec.AddStatusmessage( i + " - " + rackX );
-}
-
-*/
-
