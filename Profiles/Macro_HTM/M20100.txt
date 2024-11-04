@@ -3,7 +3,6 @@
 
 // get decimals from settings
 string decimals = AS3.Getfield(195);
-//exec.AddStatusmessage( "decimals = " + decimals );
 
 double droValue = 0;
 string slotStatus;

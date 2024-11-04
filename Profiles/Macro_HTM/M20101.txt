@@ -1,42 +1,15 @@
 // macroloop ptr citire senzori sloturi
 
-// daca senzorii sunt activati din ATC setup
-if (exec.Readkey("UserTextfields", "20202", "false")=="true") {
-		
-	// citim starea ledurilor de input ptr senzorii sloturilor
-	for (int i = 0; i < 10; i++) {
-			if (Getinpin(AS3.Getfieldint(i+20611),AS3.Getfieldint(i+20621))) {
-				// aprindem LED de control slot
-				AS3.SetLED(false, (i+831));		
-			} else {
-				AS3.SetLED(true, (i+831));		
-			}			
-	}
-
-	bool Getinpin(int port,int pin) {
-	   bool pinread = AS3.GetLED(LEDnum(port,pin));
-	   return pinread;
-	}
-
-	int LEDnum(int port,int pin) {
-	  //Port #1 Pin 1 - 17 = LED   1 - 17
-	  //Port #2 Pin 1 - 17 = LED  69 - 85
-	  //Port #3 Pin 1 - 17 = LED  86 - 102
-	  //Port #4 Pin 1 - 17 = LED 103 - 119
-	  //Port #5 Pin 1 - 17 = LED 120 - 136
-	  int LED = 0;
-	   
-	  if ((port < 1) || (port > 5) || (pin < 1) || (pin > 17)) {
-		 LED = 0;
-	  } else {
-		  if (port == 2) { LED = 68; }
-		  if (port == 3) { LED = 85; }
-		  if (port == 4) { LED = 102; }
-		  if (port == 5) { LED = 119; }
-	 
-		  LED += pin;
-	  }
-	  return LED;
-	}
-
-}
+// citim starea ledurilor de input ptr senzorii sloturilor
+// folosim inputuri fixe, Port 5 si Pini 2-11
+// preluam starea lor din LED-urile de DIAG (121-130)
+for (int i = 0; i < 10; i++) {
+		if (AS3.Getbuttonstate(20202)) { // daca senzorii sunt activati
+			if (AS3.GetLED(i+801)) {
+				AS3.SetLED((!AS3.GetLED(i+121)), (i+831));
+			}
+		} else {
+			AS3.SetLED(false, (i+831));
+		}				
+	} 	
+	
