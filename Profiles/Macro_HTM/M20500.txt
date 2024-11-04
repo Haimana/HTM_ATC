@@ -23,7 +23,10 @@ public void RunMacro(int slotNo) {
             isMacroRunning = false; // Resetăm starea
             return; // Ieșim din macro dacă slotul nu este activ
         }
-
+		
+		// get decimals from settings
+		string decimals = AS3.Getfield(195);
+		
 		int oldTool = 0;
         int spindleTool = exec.Getcurrenttool(); // Preluăm scula curentă
         var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot; // variabila care sa gestioneze slotul sculei atat ptr citire cat si ptr scriere
@@ -146,6 +149,7 @@ public void RunMacro(int slotNo) {
 					AS3.Validatefield(slotNo+20520); // validam inputul
 
 					string valueLength = exec.Readtooltablecell(newTool, varLength); //LengthXX
+					
 					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
 					AS3.Validatefield(slotNo+20520); // validam inputul
 					
