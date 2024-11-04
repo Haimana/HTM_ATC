@@ -18,4 +18,3 @@ for (int i = 30010; i < 30030; i++) {
 	}
 	AS3.Validatefield(i);
 }
-

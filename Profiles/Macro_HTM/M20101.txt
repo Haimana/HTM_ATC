@@ -1,0 +1,43 @@
+// macroloop ptr citire senzori sloturi
+
+
+// citim starea ledurilor de input ptr senzorii sloturilor
+for (int i = 0; i < 10; i++) {
+		if (Getinpin(AS3.Getfieldint(i+20611),AS3.Getfieldint(i+20621))) {
+			// aprindem LED de control slot
+			AS3.SetLED(false, (i+831));		
+		} else {
+			AS3.SetLED(true, (i+831));		
+		}			
+}
+
+
+
+
+#Events
+
+bool Getinpin(int port,int pin) {
+   bool pinread = AS3.GetLED(LEDnum(port,pin));
+   return pinread;
+}
+
+int LEDnum(int port,int pin) {
+  //Port #1 Pin 1 - 17 = LED   1 - 17
+  //Port #2 Pin 1 - 17 = LED  69 - 85
+  //Port #3 Pin 1 - 17 = LED  86 - 102
+  //Port #4 Pin 1 - 17 = LED 103 - 119
+  //Port #5 Pin 1 - 17 = LED 120 - 136
+  int LED = 0;
+   
+  if ((port < 1) || (port > 5) || (pin < 1) || (pin > 17)) {
+     LED = -1;
+  } else {
+      if (port == 2) { LED = 68; }
+      if (port == 3) { LED = 85; }
+      if (port == 4) { LED = 102; }
+      if (port == 5) { LED = 119; }
+ 
+      LED += pin;
+  }
+  return LED;
+}
