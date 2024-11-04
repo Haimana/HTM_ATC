@@ -16,11 +16,14 @@
 
 	
 	// verificam daca exista aer in instalatie, iesim din script daca nu
-	if (Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
-		exec.AddStatusmessage("ATC - Cannot start! No Air Pressure");
-		errorSound.Play();
-		exec.Stop();
-		return;
+	//daca senzorul este activat, adica portul este diferit de 0
+	if ((AS3.Getfieldint(20654)!=0) && (AS3.Getfieldint(20655)!=0)) {
+		if (Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
+			exec.AddStatusmessage("ATC - Cannot start! No Air Pressure");
+			errorSound.Play();
+			exec.Stop();
+			return;
+		}
 	}
 	
 		
@@ -116,7 +119,7 @@ for (int i = 1; i < 50; i++)
 
 
 // case 1 - not same tool, searching if currentTool have own slot already (was previously declared in rack)
-	// cautam, daca exista deja, pozitia lui oldtool in sloturi
+	// cautam, daca exista deja, pozitia lui currentTool in sloturi
 	for (int i = 20501; i < 20511; i++) {
 		if ((currentTool == AS3.Getfielddouble(i)) && (AS3.GetLED(i-19700))) { // atribuim valoare lui oldSlot in caz ca gasim scula in rack
 			oldSlot = (i-20500);
