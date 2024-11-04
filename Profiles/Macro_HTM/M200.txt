@@ -8,13 +8,13 @@ double parkX = Convert.ToDouble(exec.Readkey("UserTextfields", "30020", "0"));
 double parkY = Convert.ToDouble(exec.Readkey("UserTextfields", "30021", "0"));
 double parkZ = Convert.ToDouble(exec.Readkey("UserTextfields", "30022", "0"));
 
-if (parkX == 0 && parkY == 0 & parkZ == 0) {
-    exec.AddStatusmessage("TC Position Disabled! Exiting!");
-    // AS3.Switchbutton(false, 193);
-    return;
-// } else {
-    // AS3.Switchbutton(true, 193);
-}
+// if (parkX == 0 && parkY == 0 & parkZ == 0) {
+    // exec.AddStatusmessage("TC Position Disabled! Exiting!");
+    // // AS3.Switchbutton(false, 193);
+    // return;
+// // } else {
+    // // AS3.Switchbutton(true, 193);
+// }
 
 
 if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
