@@ -35,10 +35,12 @@ AS3jog.Setfieldtext(exec.Readkey("UserTextfields", "20913", "25"), 913); // Set 
 AS3jog.Validatefield(913);
 	
 
+// // preluam pozitia TCP-TP salvata de macro M20330
+// AS3.Setfield(Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "")), 20330); // Set Jog Percent
+// AS3.Validatefield(20330);
 // preluam pozitia TCP-TP salvata de macro M20330
-AS3.Setfield(Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "")), 20330); // Set Jog Percent
+AS3.Setfieldtext(exec.Readkey("UserTextfields", "20330", "0"), 20330); // Set Jog Percent
 AS3.Validatefield(20330);
-
 
 // butonul ptr activare senzori la sloturi
 if (exec.Readkey("UserTextfields", "20202", "false")=="true") AS3.Switchbutton(true, 20202);
