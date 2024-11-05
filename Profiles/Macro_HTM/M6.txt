@@ -186,10 +186,7 @@
 	if ((oldSlot > 0) && (currentTool > 0)) {
 		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
 		
-		exec.AddStatusmessage(" functia checkslot = " + CheckSlot(oldSlot));
-		
 		// moving spindle to safeZ for ATC operations
-		//exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
@@ -198,9 +195,6 @@
 		Xoriginalpos = exec.GetXmachpos();
 		Yoriginalpos = exec.GetYmachpos();
 		Zoriginalpos = exec.GetZmachpos();
-		// exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
-		
-		// cheking slot sensors, function will report error status if sensors are enabled
 		
 		// moving spindle in front of receiver slot
 		//exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
@@ -208,17 +202,14 @@
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
-		// // moving spindle close to receiver slot on clearRack
-		// exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
-		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
-		// while(exec.IsMoving()){}
-		// exec.Wait(delay); // Wait 500msec
+		if (!CheckSlot(oldSlot, false)) {  // checking slot sensor (false = empty slot). abort if not as desired
+			exec.AddStatusmessage("Slot " + oldSlot + " reporting error - Aborting!");
+			return;
+		}
 		
 		// incepem suflarea aerului ptr curatare slot receptor daca Air Blow este activat			
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			//exec.AddStatusmessage("---Blowing air for fork cleaning");
 			exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
-			// de adaugat cod ptr actionare electrovalva
 		}
 		
 		//lowering spindle to releasing Z position (rackZ)
@@ -228,7 +219,6 @@
 		exec.Wait(delay); // Wait 500msec
 		
 		//moving spindle into final docking position
-		exec.AddStatusmessage("Moving into slot at " + rackAxis2 + rackY);
 		exec.Code("G01 G53 " + rackAxis2 + rackY + " F" + tcfeed); 
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
@@ -238,49 +228,38 @@
 		exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
 		exec.Wait(delay); // Wait 500msec
 
+		if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
+		while(exec.IsMoving()){}
+		exec.Wait(delay); // Wait 500msec
+
+		if (!CheckSlot(oldSlot, true)) {  // checking slot sensor (false = empty slot). abort if not as desired
+			exec.AddStatusmessage("Slot " + oldSlot + " reporting error - Aborting!");
+			return;
+		}
+
 		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
 		if (emptyZ != safeZ) {
-			// exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
 			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
-			while(exec.IsMoving()){}
 		} else { // when emptyZ == safeZ
-			// exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
-			while(exec.IsMoving()){}
 		}
+		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
-		// exec.AddStatusmessage("---Deactivating drawbar");
 		exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
 
 		//oprire aer
 		if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-			// exec.AddStatusmessage("---Stop blowing air...");
 			exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
-			// de adaugat codul ptr control output
 		}
 		
-
 		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
 		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
 		// while(exec.IsMoving()){}
-		
-		
-		
-		//mutam in checkZ ptr verificare prezenta scula in slot dar doar daca senzorii sunt activati
-		//if (checkZ <> rackZ) - checkZ inca neimplementat
-		
-		//daca sloturile au senzori (adica avem rackZ <> checkZ) verificam daca slotul raporteaza scula ca fiind returnata la dupa ce mutam in checkZ
-
-		//scriem currentTool in slotul gasit liber 
-		//scriem numarul sculei in field-ul aferent slotului(20501 ptr slotul 1)
-		
+				
 		exec.Writekey("UserTextfields", Convert.ToString(oldSlot+20500), Convert.ToString(currentTool)); // scriem-salvam noua valoare in profile
-                    
 		AS3.SetLED(false, (oldSlot+820)); // stingem LED de scula activa pe oldSlot
-					
-		//afisam numarul sculei in slot
-		AS3.Setfield(currentTool, (oldSlot+20500));
+		AS3.Setfield(currentTool, (oldSlot+20500)); //afisam numarul sculei in slot
 
 		if (updateDetails) { // daca scula a fost returnata in slot liber, actualizam slotul si parametrii sculei (SlotXX)
 			//scriem in tooltable noul slot ptr scula nou alocata 
@@ -346,7 +325,6 @@
 
 	if (newTool > 0) {
 		
-		  
 		//searching newtool no in slots
 		for (int i = 1; i < 11; i++) {
 			if (AS3.GetLED(i+800)) {  // cautam doar in sloturile active
@@ -362,61 +340,60 @@
 		if (newSlot > 0) { 
 			//aici trebuie adaugata coborarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
 			if (emptyZ != safeZ) {
-				// exec.AddStatusmessage("Moving to emptyZ Z" + emptyZ);
 				exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
-				while(exec.IsMoving()){}
 			} else { // when emptyZ == safeZ
-				// exec.AddStatusmessage("Moving to safeZ Z" + safeZ);
 				exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
-				while(exec.IsMoving()){}
 			}
+			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 			
 			// moving spindle above emmiter slot
-			exec.AddStatusmessage("Moving above slot " + newSlot);
 			exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack) + rackAxis2 + rackY); 
 			// exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 
-			
+			if (!CheckSlot(newSlot, true)) {  // checking slot sensor (false = empty slot). abort if not as desired
+				exec.AddStatusmessage("Slot " + oldSlot + " reporting error - Aborting!");
+				return;
+			}
+		
 			// incepem suflarea aerului ptr curatare slot receptor			
 			if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-				//exec.AddStatusmessage("---Blowing air for fork cleaning");
 				exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
-				// de adaugat cod ptr actionare electrovalva
 			}
 
 			//activating drawbar pentru cuplare scula scula
-			// exec.AddStatusmessage("---Activating drawbar");
 			exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
 
 			//lowering spindle to loading Z position (rackZ)
-			// exec.AddStatusmessage("Moving to rackZ Z" + rackZ);
 			exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
-			// cuplare scula
-			// exec.AddStatusmessage("---Deactivating drawbar");
 			exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
 			
 			//oprire aer
 			if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-				// exec.AddStatusmessage("---Stop blowing air");
 				exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
-				// de adaugat cod ptr actionare electrovalva
 			}
 			exec.Wait(delay); // Wait 500msec
 			
+			if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
+			while(exec.IsMoving()){}
+			exec.Wait(delay); // Wait 500msec		
+			
+			if (!CheckSlot(newSlot, false)) {  // checking slot sensor (false = empty slot). abort if not as desired
+				exec.AddStatusmessage("Slot " + oldSlot + " reporting error - Aborting!");
+				return;
+			}			
+			
 			// moving spindle to clearRack
-			// exec.AddStatusmessage("Moving at clearRack at " + rackAxis2 + clearRack);
 			exec.Code("G01 G53 " + rackAxis2 + clearRack); 
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
 			// moving spindle to clear Z for ATC operations
-			// exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
 			exec.Code("G00 G53 Z"+ safeZ); // Move Z up
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
@@ -426,6 +403,7 @@
 			exec.Writekey("UserTextfields", "20222", Convert.ToString(newTool)); // salvam starea slotului prin scriere 0 in profile	
 			
 			AS3.SetLED(true, (newSlot+820)); // aprindem LED de scula activa pe oldSlot
+			
 		} // aici se termina codul de incarcare a sculei din slot regasit in rack
 		else if (newSlot == 0)//cod care ruleaza cand scula ceruta nu este in rack si trebuie incarcata manual din TCP
 		{ 
@@ -502,21 +480,55 @@ int LEDnum(int port,int pin) {
 }
 
 
-	
 
-//bool CheckSlot(int slotNo, bool reqStatus, string opDesc = "")
-bool CheckSlot(int slotNo)
+bool CheckSlot(int slotNo, bool requestedStatus)
 {
-	bool sensorsOn = AS3.Getbuttonstate(20202);
-	
-	if (sensorsOn) { // daca senzorii sunt activati
-		bool slotStatus = AS3.GetLED(slotNo+830);
-		exec.AddStatusmessage("Slot " + slotNo + " = " + slotStatus);
-	return slotStatus;
-	
-	
-	
-	}
-	
-	return false;
+    // Obține starea LED-ului corespunzător slotului
+    bool currentStatus = AS3.GetLED(slotNo + 830);
+
+    // Verificăm dacă starea LED-ului este deja identică cu `requestedStatus`
+    if (currentStatus == requestedStatus)
+    {
+        return true;
+    }
+
+    // Dacă starea LED-ului nu este cea dorită, așteptăm pentru o schimbare
+    int waitTime = Convert.ToInt32(AS3.Getfield(30019));
+
+    // Folosim o buclă pentru a repeta timpul de așteptare în caz de Retry
+    while (true)
+    {
+        // Așteptăm `waitTime` milisecunde
+        System.Threading.Thread.Sleep(waitTime);
+
+        // Verificăm din nou starea LED-ului
+        currentStatus = AS3.GetLED(slotNo + 830);
+        if (currentStatus == requestedStatus)
+        {
+            return true;
+        }
+
+        // Dacă starea nu s-a schimbat, afișăm dialogul Abort/Retry/Ignore
+        DialogResult result = MessageBox.Show(
+            "Starea LED-ului nu coincide cu requestedStatus.\n" +
+            "Doriți să opriți macro-ul, să încercați din nou sau să ignorați?",
+            "LED Status Mismatch",
+            MessageBoxButtons.AbortRetryIgnore,
+            MessageBoxIcon.Warning,
+			MessageBoxDefaultButton.Button2,
+			MessageBoxOptions.ServiceNotification
+       );
+
+        // Gestionăm răspunsul utilizatorului
+        if (result == DialogResult.Abort)
+        {
+            exec.Stop();  // Oprește execuția întregului macro
+            return false; // Returnăm false pentru a semnaliza că a fost oprit
+        }
+        else if (result == DialogResult.Ignore)
+        {
+            return true; // Ignorăm discrepanța și continuăm macro-ul
+        }
+        // Dacă se selectează Retry, bucla se va repeta, așteptând din nou
+    }
 }
