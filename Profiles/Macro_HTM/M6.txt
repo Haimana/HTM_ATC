@@ -1,35 +1,26 @@
+/* ///////////////////////////////////////////////////////
+* 				M6 HTM_ATC Macro - by Seb
+* 2024.11.05	- adding CheckSlot function with while loops for waitTime
+*				- adding config options for ATC
+*					- show ATC page during TC operation
+*					- apply G43 for new loaded tools (G49 if not)
+*					- back to initial position after TC 
+*
+*/
 
-	//exec.AddStatusmessage("M6 Start");
 	exec.Stopspin(); 	//Make sure the spindle is OFF
 	exec.Code("M09"); 	//Make sure coolant is OFF
 
-	// using System.Windows.Forms;
-
 	//definire mesaj sonor de eroare
 	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
-
+	
 	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
 	{
-		DialogResult result = MessageBox.Show(
-			"ATC - Cannot start! One or more axis are NOT REFERENCED!\n\nPress OK to reference it now or Cancel to abort!", 
-			"Machine NOT Referenced!", 
-			MessageBoxButtons.OKCancel, 
-			MessageBoxIcon.Warning, 
-			MessageBoxDefaultButton.Button1, 
-			MessageBoxOptions.ServiceNotification
-			);
-
-		if (result == DialogResult.OK) {			
-				exec.Callbutton(113); // home all button
-				while(exec.IsMoving()){}
-			} else if (result == DialogResult.Cancel) {
-				exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
-				errorSound.Play();		
-				exec.Stop();
-				return;
-			}
-		}
-
+		exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
 
 	
 	// verificam daca exista aer in instalatie, iesim din script daca nu
@@ -491,6 +482,102 @@ public bool CheckSlot(int slotNo, bool requestedStatus)
     // Preluăm timpul de așteptare din variabila configurată
     int waitTime = Convert.ToInt32(AS3.Getfield(30019));
     int elapsedTime = 0;
+    int debounceTime = 1000; // Timpul de debounce în milisecunde
+    int debounceElapsed = 0;
+    int checkInterval = 100; // Intervalul de verificare mai frecvent pentru debounce
+
+    // Buclă de așteptare până se atinge timpul total de așteptare sau până starea devine cea dorită
+    while (elapsedTime < waitTime)
+    {
+        System.Threading.Thread.Sleep(checkInterval);
+        elapsedTime += checkInterval;
+
+        // Verificăm starea LED-ului
+        currentStatus = AS3.GetLED(slotNo + 830);
+
+        if (currentStatus == requestedStatus)
+        {
+            // Dacă starea este cea dorită, începem temporizatorul de debounce
+            debounceElapsed += checkInterval;
+
+            if (debounceElapsed >= debounceTime)
+            {
+                // Dacă starea este stabilă pentru perioada de debounce, considerăm validat
+                return true;
+            }
+        }
+        else
+        {
+            // Dacă starea nu este cea dorită, resetăm temporizatorul de debounce
+            debounceElapsed = 0;
+        }
+    }
+
+    // Dacă starea LED-ului nu se potrivește după timpul de așteptare, afișăm dialogul Abort/Retry/Ignore
+    while (true)
+    {
+        DialogResult result = MessageBox.Show(
+            "Slot " + slotNo + " Sensor report " + !requestedStatus + "\n" +
+            "Expecting " + requestedStatus + "!!",
+            "Slot Status Mismatch",
+            MessageBoxButtons.AbortRetryIgnore,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button1,
+            MessageBoxOptions.DefaultDesktopOnly
+        );
+
+        // Gestionăm răspunsul utilizatorului
+        if (result == DialogResult.Abort)
+        {
+            exec.Stop();  // Oprește execuția întregului macro
+            return false; // Returnăm false pentru a semnaliza că a fost oprit
+        }
+        else if (result == DialogResult.Ignore)
+        {
+            return true; // Ignorăm discrepanța și continuăm macro-ul
+        }
+
+        // Dacă se selectează Retry, bucla de așteptare se repetă
+        // Resetăm `elapsedTime` și reîncepem verificarea
+        elapsedTime = 0;
+        debounceElapsed = 0; // Resetăm și debounce-ul
+        while (elapsedTime < waitTime)
+        {
+            System.Threading.Thread.Sleep(checkInterval);
+            elapsedTime += checkInterval;
+
+            currentStatus = AS3.GetLED(slotNo + 830);
+            if (currentStatus == requestedStatus)
+            {
+                debounceElapsed += checkInterval;
+
+                if (debounceElapsed >= debounceTime)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                debounceElapsed = 0;
+            }
+        }
+    }
+}
+
+
+/*
+public bool CheckSlot(int slotNo, bool requestedStatus)
+{
+    // Verificăm inițial starea LED-ului
+    bool currentStatus = AS3.GetLED(slotNo + 830);
+    if (currentStatus == requestedStatus)
+    {
+        return true;
+    }
+
+    // Preluăm timpul de așteptare din variabila configurată
+    int waitTime = Convert.ToInt32(AS3.Getfield(30019));
+    int elapsedTime = 0;
     int checkInterval = 500; // Intervalul de verificare, în milisecunde
 
     // Buclă de așteptare până se atinge timpul total de așteptare sau până starea devine cea dorită
@@ -548,7 +635,7 @@ public bool CheckSlot(int slotNo, bool requestedStatus)
         }
     }
 }
-
+*/
 
 
 // bool CheckSlot(int slotNo, bool requestedStatus)
