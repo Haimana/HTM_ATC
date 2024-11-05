@@ -40044,7 +40044,7 @@ AS3.selectlayer(57);
 AS3.selectlayer(53);
 AS3.selectlayer(46);
 AS3.selectlayer(41);
-AS3.selectlayer(27);
+AS3.selectlayer(30);
 AS3.selectlayer(20);
 AS3.selectlayer(13);
 AS3.selectlayer(8);
@@ -43976,6 +43976,10 @@ AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 368, 110, "fieldnb", -10
 AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 403, 110, "fieldnb", -1000000, 1000000, 30021, 100);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 438, 110, "fieldnb", -1000000, 1000000, 30022, 100);
 AS3.Addfield("", "Arial", "right", 26, -16777216, 918, 229, 140, "fieldnb", -1000000, 1000000, 30023, 100);
+AS3.Addfield("", "Arial", "center", 20, -16776961, 1809, 258, 58, "field", -1, 96, 2747, 100);
+AS3.Setfieldtext("0", 2747);
+AS3.Addfield("", "Arial", "right", 16, -16776961, 1800, 285, 80, "field", -10000, 10000, 30024, 6);
+AS3.Addfield("", "Arial", "right", 16, -65536, 1800, 310, 80, "showfield", -10000, 10000, 20330, 6);
 //Add textfields to jog screen
 AS3jog.Addfield("", "Arial", "center", 22, -16777216, 90, 223, 71, "fieldnb", 0, 100, 913, 1);
 AS3jog.Setfieldtext("10", 913);
@@ -44277,6 +44281,12 @@ AS3.Addlabel("Angle", "Arial", "left", 18, -1, 1771, 463, 26);
 AS3.Addlabel("Show ATC screen TC Op.", "Arial", "left", 16, -2302756, 1123, 260, 6);
 AS3.Addlabel("Apply G43 after TC", "Arial", "left", 16, -2302756, 1123, 285, 6);
 AS3.Addlabel("Back to initial XY position", "Arial", "left", 16, -2302756, 1123, 310, 6);
+AS3.Addlabel("Use Repeatable Holders", "Arial", "left", 16, -2302756, 1380, 260, 6);
+AS3.Addlabel("Measure Tools with NRH", "Arial", "left", 16, -2302756, 1380, 285, 6);
+AS3.Addlabel("Save NRH Length in T/T", "Arial", "left", 16, -2302756, 1380, 310, 6);
+AS3.Addlabel("Reference Tool No.", "Arial", "left", 16, -2302756, 1625, 260, 6);
+AS3.Addlabel("Reference Tool Length", "Arial", "left", 16, -2302756, 1625, 285, 6);
+AS3.Addlabel("Measured TCP-TP Z", "Arial", "left", 16, -2302756, 1625, 310, 6);
 //Add labels to jog screen
 //Add lists to main screen
 AS3.Addlist("Arial", "left", 14, -1, -13948375, 1, 5, 661, 241, 350, 2, 1);
@@ -44743,6 +44753,9 @@ AS3.Addcheckbox("", "Arial", 21, 0, 1479, 475, 210, 45);
 AS3.Addcheckbox("", "Arial", 15, 0, 1326, 260, 30006, 100);
 AS3.Addcheckbox("", "Arial", 15, 0, 1326, 285, 30005, 100);
 AS3.Addcheckbox("", "Arial", 15, 0, 1326, 310, 30004, 100);
+AS3.Addcheckbox("", "Arial", 15, 0, 1575, 260, 30002, 100);
+AS3.Addcheckbox("", "Arial", 15, 0, 1575, 285, 30003, 100);
+AS3.Addcheckbox("", "Arial", 15, 0, 1575, 310, 30007, 100);
 //Add checkboxes to jog screen
 //Add sliders to main screen
 AS3.Addslider(1065, 666, 135, -65536, -5658199, 0, 300, false, false, 232, 1);
