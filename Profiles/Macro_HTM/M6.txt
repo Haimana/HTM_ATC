@@ -470,98 +470,104 @@ int LEDnum(int port,int pin) {
 
 
 
-public bool CheckSlot(int slotNo, bool requestedStatus)
+//public 
+bool CheckSlot(int slotNo, bool requestedStatus)
 {
-    // Verificăm inițial starea LED-ului
-    bool currentStatus = AS3.GetLED(slotNo + 830);
-    if (currentStatus == requestedStatus)
-    {
-        return true;
-    }
+	if (AS3.Getbuttonstate(20202)) { 
 
-    // Preluăm timpul de așteptare din variabila configurată
-    int waitTime = Convert.ToInt32(AS3.Getfield(30019));
-    int elapsedTime = 0;
-    int debounceTime = 1000; // Timpul de debounce în milisecunde
-    int debounceElapsed = 0;
-    int checkInterval = 100; // Intervalul de verificare mai frecvent pentru debounce
+		// Verificăm inițial starea LED-ului
+		bool currentStatus = AS3.GetLED(slotNo + 830);
+		if (currentStatus == requestedStatus)
+		{
+			return true;
+		}
 
-    // Buclă de așteptare până se atinge timpul total de așteptare sau până starea devine cea dorită
-    while (elapsedTime < waitTime)
-    {
-        System.Threading.Thread.Sleep(checkInterval);
-        elapsedTime += checkInterval;
+		// Preluăm timpul de așteptare din variabila configurată
+		int waitTime = Convert.ToInt32(AS3.Getfield(30019));
+		int elapsedTime = 0;
+		int debounceTime = 1000; // Timpul de debounce în milisecunde
+		int debounceElapsed = 0;
+		int checkInterval = 100; // Intervalul de verificare mai frecvent pentru debounce
 
-        // Verificăm starea LED-ului
-        currentStatus = AS3.GetLED(slotNo + 830);
+		// Buclă de așteptare până se atinge timpul total de așteptare sau până starea devine cea dorită
+		while (elapsedTime < waitTime)
+		{
+			System.Threading.Thread.Sleep(checkInterval);
+			elapsedTime += checkInterval;
 
-        if (currentStatus == requestedStatus)
-        {
-            // Dacă starea este cea dorită, începem temporizatorul de debounce
-            debounceElapsed += checkInterval;
+			// Verificăm starea LED-ului
+			currentStatus = AS3.GetLED(slotNo + 830);
 
-            if (debounceElapsed >= debounceTime)
-            {
-                // Dacă starea este stabilă pentru perioada de debounce, considerăm validat
-                return true;
-            }
-        }
-        else
-        {
-            // Dacă starea nu este cea dorită, resetăm temporizatorul de debounce
-            debounceElapsed = 0;
-        }
-    }
+			if (currentStatus == requestedStatus)
+			{
+				// Dacă starea este cea dorită, începem temporizatorul de debounce
+				debounceElapsed += checkInterval;
 
-    // Dacă starea LED-ului nu se potrivește după timpul de așteptare, afișăm dialogul Abort/Retry/Ignore
-    while (true)
-    {
-        DialogResult result = MessageBox.Show(
-            "Slot " + slotNo + " Sensor report " + !requestedStatus + "\n" +
-            "Expecting " + requestedStatus + "!!",
-            "Slot Status Mismatch",
-            MessageBoxButtons.AbortRetryIgnore,
-            MessageBoxIcon.Warning,
-            MessageBoxDefaultButton.Button1,
-            MessageBoxOptions.DefaultDesktopOnly
-        );
+				if (debounceElapsed >= debounceTime)
+				{
+					// Dacă starea este stabilă pentru perioada de debounce, considerăm validat
+					return true;
+				}
+			}
+			else
+			{
+				// Dacă starea nu este cea dorită, resetăm temporizatorul de debounce
+				debounceElapsed = 0;
+			}
+		}
 
-        // Gestionăm răspunsul utilizatorului
-        if (result == DialogResult.Abort)
-        {
-            exec.Stop();  // Oprește execuția întregului macro
-            return false; // Returnăm false pentru a semnaliza că a fost oprit
-        }
-        else if (result == DialogResult.Ignore)
-        {
-            return true; // Ignorăm discrepanța și continuăm macro-ul
-        }
+		// Dacă starea LED-ului nu se potrivește după timpul de așteptare, afișăm dialogul Abort/Retry/Ignore
+		while (true)
+		{
+			DialogResult result = MessageBox.Show(
+				"Slot " + slotNo + " Sensor report " + !requestedStatus + "\n" +
+				"Expecting " + requestedStatus + "!!",
+				"Slot Status Mismatch",
+				MessageBoxButtons.AbortRetryIgnore,
+				MessageBoxIcon.Warning,
+				MessageBoxDefaultButton.Button1,
+				MessageBoxOptions.DefaultDesktopOnly
+			);
 
-        // Dacă se selectează Retry, bucla de așteptare se repetă
-        // Resetăm `elapsedTime` și reîncepem verificarea
-        elapsedTime = 0;
-        debounceElapsed = 0; // Resetăm și debounce-ul
-        while (elapsedTime < waitTime)
-        {
-            System.Threading.Thread.Sleep(checkInterval);
-            elapsedTime += checkInterval;
+			// Gestionăm răspunsul utilizatorului
+			if (result == DialogResult.Abort)
+			{
+				exec.Stop();  // Oprește execuția întregului macro
+				return false; // Returnăm false pentru a semnaliza că a fost oprit
+			}
+			else if (result == DialogResult.Ignore)
+			{
+				return true; // Ignorăm discrepanța și continuăm macro-ul
+			}
 
-            currentStatus = AS3.GetLED(slotNo + 830);
-            if (currentStatus == requestedStatus)
-            {
-                debounceElapsed += checkInterval;
+			// Dacă se selectează Retry, bucla de așteptare se repetă
+			// Resetăm `elapsedTime` și reîncepem verificarea
+			elapsedTime = 0;
+			debounceElapsed = 0; // Resetăm și debounce-ul
+			while (elapsedTime < waitTime)
+			{
+				System.Threading.Thread.Sleep(checkInterval);
+				elapsedTime += checkInterval;
 
-                if (debounceElapsed >= debounceTime)
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                debounceElapsed = 0;
-            }
-        }
-    }
+				currentStatus = AS3.GetLED(slotNo + 830);
+				if (currentStatus == requestedStatus)
+				{
+					debounceElapsed += checkInterval;
+
+					if (debounceElapsed >= debounceTime)
+					{
+						return true;
+					}
+				}
+				else
+				{
+					debounceElapsed = 0;
+				}
+			}
+		}
+	} else {
+		return true; // returnam true in caz ca senzorii sunt dezactivati
+	}
 }
 
 

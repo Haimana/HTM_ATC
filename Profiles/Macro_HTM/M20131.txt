@@ -16,6 +16,15 @@
 // myEvar = Evar;
 // RunMacro(Convert.ToInt32(Evar)); // 
 
+//definire mesaj sonor de eroare
+System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
+        
+if (exec.Getcurrenttool() == 0) {
+    exec.AddStatusmessage("Spindle empty! Exiting");
+	errorSound.Play();
+    isMacroRunning = false; // Resetăm starea
+    return;
+}
 
 RunMacro(exec.Getcurrenttool()); // 
 
@@ -142,10 +151,96 @@ public void RunMacro(int toolNo) {
             // exec.Writetooltablecell(toolNo, varDescription, inputDescription.Text);
     
 			// Codul specific pentru acest buton
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////
 			exec.AddStatusmessage("Moving to TCP"); 
-			// exec.Code("M200");
+
+             // Go to Park position 1 macro - defined as TCP in HTM_ATC screenset (TCP = Tool Change Position)
+            double parkX = Convert.ToDouble(exec.Readkey("UserTextfields", "30020", "0"));
+            double parkY = Convert.ToDouble(exec.Readkey("UserTextfields", "30021", "0"));
+            double parkZ = Convert.ToDouble(exec.Readkey("UserTextfields", "30022", "0"));           
+          
+            if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
+            {
+              MessageBox.Show("The machine was not yet homed, home the machine before run to parking position!");
+              exec.Stop();
+              return;
+            }          
+
+            int originalmodalmode = exec.actualmodal; // remember the modal mode
+
+            while(exec.IsMoving()){}
+
+            exec.Code("G00 G53 Z"+ parkZ); // Move Z up first to park1 Z position
+            while(exec.IsMoving()){}
+
+            exec.Code("G00 G53 X" + parkX +" Y" + parkY); // Move to XY park1 position
+            while(exec.IsMoving()){}
+
+            exec.Code("G" + originalmodalmode); // Set system back to the original distance mode
+            
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////
 			exec.AddStatusmessage("Measuring Tool"); 
-			// exec.Code("M20331");
+            
+            // preluam coordonatele TCP (Tool Change Position) din ATC setup
+            double tcpXpos = AS3.Getfielddouble(30020);
+            double tcpYpos = AS3.Getfielddouble(30021);
+            double tcpZpos = AS3.Getfielddouble(30022);
+
+            int minZlimit = AS3.Getfieldint(41);
+            int FeedrateSlow = AS3.Getfieldint(2710);
+            int FeedrateFast = AS3.Getfieldint(2709);
+
+            double retractforsecondmeasurement = AS3.Getfielddouble(2706);
+
+            // pozitia mcZpos - adica unde este senzorul ptr masurat scule, salvat de macro M20330
+            double mcZpos = Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "0"));
+
+            // preluam nr sculei din spindle, adica scula pe care o masuram
+            int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
+
+            bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first with Fast and second with Slow feedrates
+            exec.AddStatusmessage(Convert.ToString(dodualcycle));
+
+            // var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+
+            // ne mutam in tcpZpos
+            exec.Code("G53 G0 Z" + tcpZpos);
+            exec.Code("G53 G0 X" + tcpXpos + " Y" + tcpYpos);
+            while(exec.IsMoving()){}
+
+            if(!dodualcycle)
+            {
+              exec.Code("G31 Z" + minZlimit + "F" + FeedrateFast); // Do the Z probing with Fast feedrate first
+              while(exec.IsMoving()){}
+
+              exec.Code("G91 G0 Z" + retractforsecondmeasurement);
+              exec.Code("G90"); 
+            }
+            while(exec.IsMoving()){}
+
+            //coboram pana la touch, maxim pe cota minimZ definita in axe
+            exec.Code("G31 F" + FeedrateSlow + " Z" + minZlimit);
+            while(exec.IsMoving()){}
+
+            double currentZpos = exec.GetZmachpos();
+
+                double currenToolOffset = Math.Abs(mcZpos) + exec.GetZmachpos();
+                exec.AddStatusmessage("toolLength = " + currenToolOffset);
+
+                exec.Writetooltablecell(currentTool, varLength, Convert.ToString(currenToolOffset)); // 
+                exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
+                exec.Code("M99998");  //refreshing data
+                exec.Code("G43 H" + currentTool);
+
+                // salvam mcZpos in profile file	
+                //exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
+                    exec.Wait(500); // Wait 500msec
+                
+                //ne intoarcem in tcpZpos
+            exec.Code("G53 G0 " + " Z" + tcpZpos);
+
+
 
 			// Reîmprospătează valorile după execuție, dacă este necesar
             inputLength.Text = exec.Readtooltablecell(toolNo, varLength);
