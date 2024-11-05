@@ -175,7 +175,7 @@
 	//daca oldtool > 0 si are slot propriu (sau exista slot liber declarat anterior) in magazie, 
 	//returnam scula in slotul aferent
 	if ((oldSlot > 0) && (currentTool > 0)) {
-		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
+		// exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
 		
 		// moving spindle to safeZ for ATC operations
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
@@ -319,7 +319,7 @@
 			if (AS3.GetLED(i+800)) {  // cautam doar in sloturile active
 				if (newTool == Convert.ToInt32(AS3.Getfield(i+20500))) {
 					newSlot = (i);
-					exec.AddStatusmessage("ATC - T" + newTool + " found in Slot #" + newSlot);
+					// exec.AddStatusmessage("ATC - T" + newTool + " found in Slot #" + newSlot);
 					i = 11; // iesim din bucla daca gasim scula ceruta in magazie
 				}
 			}
@@ -434,7 +434,7 @@
 		AS3.selectlayer(initLayer);	
 	}
 	
-exec.AddStatusmessage("M6 Finished");
+// exec.AddStatusmessage("M6 Finished");
 return;
 
 

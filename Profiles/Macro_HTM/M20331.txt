@@ -32,7 +32,7 @@ double mcZpos = Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "0"));
 int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 
 bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first with Fast and second with Slow feedrates
-exec.AddStatusmessage(Convert.ToString(dodualcycle));
+// exec.AddStatusmessage(Convert.ToString(dodualcycle));
 
 var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 
