@@ -10,16 +10,37 @@
 
 	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
 	{
-		exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
-		errorSound.Play();
-		exec.Stop();
-		return;
-	}
+		DialogResult result = MessageBox.Show(
+			"ATC - Cannot start! One or more axis are NOT REFERENCED!\n\nPress OK to reference it now or Cancel to abort!", 
+			"Machine NOT Referenced!", 
+			MessageBoxButtons.OKCancel, 
+			MessageBoxIcon.Warning, 
+			MessageBoxDefaultButton.Button1, 
+			MessageBoxOptions.ServiceNotification
+			);
+
+		if (result == DialogResult.OK) {			
+				exec.Callbutton(113); // home all button
+				while(exec.IsMoving()){}
+			} else if (result == DialogResult.Cancel) {
+				exec.AddStatusmessage("ATC - Cannot start! One or more axis are NOT REFERENCED");
+				errorSound.Play();		
+				exec.Stop();
+				return;
+			}
+		}
+
 
 	
 	// verificam daca exista aer in instalatie, iesim din script daca nu
 	//daca senzorul este activat, adica portul este diferit de 0
-	if ((AS3.Getfieldint(20654)!=0) && (AS3.Getfieldint(20655)!=0)) {
+	if (AS3.Getbuttonstate(20202)) { // daca senzorii sunt activati
+		if ((AS3.Getfieldint(20654)!=0) && (AS3.Getfieldint(20655)!=0)) {
+			exec.AddStatusmessage("ATC - Invalid Pressure Sensor Config!");
+			errorSound.Play();
+			exec.Stop();
+			return;
+		}			
 		if (Getinpin(AS3.Getfieldint(20654),AS3.Getfieldint(20655))) {
 			exec.AddStatusmessage("ATC - Cannot start! No Air Pressure");
 			errorSound.Play();
@@ -32,6 +53,8 @@
 	//declarare variabile
   	int newtool;		//scula noua ceruta in spindle
   	int oldtool;		//scula existenta in spindle
+	
+	int manualConfirm = 0; // pentru operatiuni cu senzorii sloturilor
 	
 	// spindle outputs
 	int drawbarPort = AS3.Getfieldint(20650);
@@ -64,8 +87,13 @@
 	double safeZ = AS3.Getfielddouble(30015);		//pozitia pe Z ptr incarcare scula (clearance pe deasupra conurilor)
 	double emptyZ = AS3.Getfielddouble(30016);		//pozitia pe Z unde se ridica spindle gol, fara scula, ptr traversarea pe deasupra sculelor si incarcarea noii scule
 	double tcfeed = AS3.Getfielddouble(30017);		//feedrate la care se face schimbarea sculelor
-	// double checkZ;		//daca checkZ <> rackZ atunci oprim la checkZ ptr verifidcare senzor stare slot
+	double checkZ = AS3.Getfielddouble(30023);		//daca checkZ <> rackZ atunci oprim la checkZ ptr verificare senzor stare slot
 	int delay = Convert.ToInt32(AS3.Getfield(30018));		//delay intre operatiuni
+	
+	// bool sensorsOn = AS3.Getbuttonstate(20202);
+	bool showATCpage = AS3.Getcheckboxstate(30006);
+	bool applyG43 = AS3.Getcheckboxstate(30005);
+	bool backToXY = AS3.Getcheckboxstate(30004);
 	
 	// Define position vars for return to this position at the end of the macro
 	double Xoriginalpos = exec.GetXmachpos();
@@ -80,23 +108,27 @@
 
 	// preluam layernumber si parentnumber din care s-a initiat comanda M6 ptr intoarcere dupa M6
 	List<Plugininterface.Datatypes.Layerdatastruct> Ldata = exec.Getlayerslist(true);
-	
-for (int i = 1; i < 50; i++)
-{
-//MessageBox.Show("" + Ldata[1].Isactive); //Shows the Isactive property of the first layer in the List.
-	if (Ldata[i].Isactive) {
-		if (Ldata[i].Parentnumber > 1){
-			// exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
-			// exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
-			// exec.AddStatusmessage ("Parent Parentnumber = " + Ldata[Ldata[i].Parentnumber].Parentnumber);
-			i = 1000;
-		} else {
-			// exec.AddStatusmessage ("Layernumber = " + Ldata[i].Layernumber);
-			// exec.AddStatusmessage ("Parentnumber = " + Ldata[i].Parentnumber);
-			i = 1000;
+
+	if (showATCpage) { // daca checkboxul ptr afisare pagina atc este bifat
+		for (int i = 1; i < 50; i++)
+		{
+		//MessageBox.Show("" + Ldata[1].Isactive); //Shows the Isactive property of the first layer in the List.
+			if (Ldata[i].Isactive) {
+				if (Ldata[i].Parentnumber > 1){
+					// exec.AddStatusmessage ("1Layernumber = " + Ldata[i].Layernumber);
+					// exec.AddStatusmessage ("1Parentnumber = " + Ldata[i].Parentnumber);
+					// exec.AddStatusmessage ("1Parent Parentnumber = " + Ldata[Ldata[i].Parentnumber].Parentnumber);
+					i = 1000;
+				} else {
+					// exec.AddStatusmessage ("2Layernumber = " + Ldata[i].Layernumber);
+					initLayer = Ldata[i].Layernumber;
+					// exec.AddStatusmessage ("2Parentnumber = " + Ldata[i].Parentnumber);
+					initParent = Ldata[i].Parentnumber;
+					i = 1000;
+				}
+			}
 		}
 	}
-}
 	
 	//checking for invalid values (unconfigured ATC system)
 	if ((stepRack == 0) || (safeZ == rackZ) || (tcfeed == 0)) { 
@@ -115,10 +147,11 @@ for (int i = 1; i < 50; i++)
 	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
 
 
-	// ne mutam in pagina de ATC
-	AS3.selectlayer(5); // prima data in 5 (parentlayer-ul lui 57)
-	AS3.selectlayer(57);	
-
+	if (showATCpage) { // daca checkboxul ptr afisare pagina atc este bifat
+		// ne mutam in pagina de ATC
+		AS3.selectlayer(5); // prima data in 5 (parentlayer-ul lui 57)
+		AS3.selectlayer(57);	
+	}
 
 // case 1 - not same tool, searching if currentTool have own slot already (was previously declared in rack)
 	// cautam, daca exista deja, pozitia lui currentTool in sloturi
@@ -126,7 +159,7 @@ for (int i = 1; i < 50; i++)
 		// atribuim valoare lui oldSlot in caz ca gasim scula in rack, slotul nu este disabled si scula existenta > 0 
 		if ((currentTool == AS3.Getfielddouble(i)) && (AS3.GetLED(i-19700)) && currentTool > 0) { 
 			oldSlot = (i-20500);
-			exec.AddStatusmessage("slot existent ptr oldTool = " + oldSlot);
+			// exec.AddStatusmessage("slot existent ptr oldTool = " + oldSlot);
 		}
 	}
 		
@@ -137,12 +170,12 @@ for (int i = 1; i < 50; i++)
 		for (int i = 20501; i < 20511; i++) {
 			if ((AS3.Getfielddouble(i) == 0) && (AS3.GetLED(i-19700))) {  // daca slotul nu este ocupat - field = 0 - si slotul nu este disabled LED 80x = true
 				oldSlot = (i-20500);
-				exec.AddStatusmessage("slot gasit liber ptr oldTool = " + oldSlot);
+				// exec.AddStatusmessage("slot gasit liber ptr oldTool = " + oldSlot);
 				updateDetails = true;
 				i = 20511; // iesim din bucla la primul slot liber gasit
 			}
 		}
-		exec.AddStatusmessage("ATC - Found Free Slot = " + oldSlot);
+		// exec.AddStatusmessage("ATC - Found Free Slot = " + oldSlot);
 
 	}
 
@@ -152,6 +185,8 @@ for (int i = 1; i < 50; i++)
 	//returnam scula in slotul aferent
 	if ((oldSlot > 0) && (currentTool > 0)) {
 		exec.AddStatusmessage("ATC - Returning Tool T" + currentTool + " to Slot #" + oldSlot);
+		
+		exec.AddStatusmessage(" functia checkslot = " + CheckSlot(oldSlot));
 		
 		// moving spindle to safeZ for ATC operations
 		//exec.AddStatusmessage("Moving to safeZ Z"+ safeZ);
@@ -163,7 +198,7 @@ for (int i = 1; i < 50; i++)
 		Xoriginalpos = exec.GetXmachpos();
 		Yoriginalpos = exec.GetYmachpos();
 		Zoriginalpos = exec.GetZmachpos();
-		exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
+		// exec.AddStatusmessage("X" + Xoriginalpos + " - Y" + Yoriginalpos + " - Z" + Zoriginalpos);
 		
 		// cheking slot sensors, function will report error status if sensors are enabled
 		
@@ -421,15 +456,16 @@ for (int i = 1; i < 50; i++)
 	
 	// Move back to start point
 	
-	exec.Code("G43 H" + newTool);
-	exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
+	if (applyG43) { exec.Code("G43 H" + newTool); } else { exec.Code("G49"); }
+	if (backToXY) exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
 	while(exec.IsMoving()){}
 
 
-
-	// ne intoarcem in screen-ul din care a fost initiata comanda M6 
-	AS3.selectlayer(initParent); // prima data in 5 (parentlayer-ul lui 57)
-	AS3.selectlayer(initLayer);	
+	if (showATCpage) { // daca checkboxul ptr afisare pagina atc este bifat
+		// ne intoarcem in screen-ul din care a fost initiata comanda M6 
+		AS3.selectlayer(initParent); // prima data in 5 (parentlayer-ul lui 57)
+		AS3.selectlayer(initLayer);	
+	}
 	
 exec.AddStatusmessage("M6 Finished");
 return;
@@ -463,4 +499,24 @@ int LEDnum(int port,int pin) {
       LED += pin;
   }
   return LED;
+}
+
+
+	
+
+//bool CheckSlot(int slotNo, bool reqStatus, string opDesc = "")
+bool CheckSlot(int slotNo)
+{
+	bool sensorsOn = AS3.Getbuttonstate(20202);
+	
+	if (sensorsOn) { // daca senzorii sunt activati
+		bool slotStatus = AS3.GetLED(slotNo+830);
+		exec.AddStatusmessage("Slot " + slotNo + " = " + slotStatus);
+	return slotStatus;
+	
+	
+	
+	}
+	
+	return false;
 }
