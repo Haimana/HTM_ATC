@@ -46,6 +46,9 @@ public void RunMacro(int toolNo) {
         string valueType = exec.Readtooltablecell(toolNo, varType);
         string valueDescription = exec.Readtooltablecell(toolNo, varDescription);
 
+
+
+
         // Inițializăm și configurăm formularul
         Form toolForm = new Form {
             // Text = "Edit Tool #" + toolNo,
@@ -122,7 +125,7 @@ public void RunMacro(int toolNo) {
 
 
 		// Adăugarea unui nou buton
-		Button customButton = new Button { Text = "Measure Tool", Left = 50, Top = 290, Width = 100 };
+		Button measureToolBtn = new Button { Text = "Measure Tool", Left = 50, Top = 290, Width = 100 };
 
 
         // Butoane OK și Cancel
@@ -131,14 +134,25 @@ public void RunMacro(int toolNo) {
 
 
 		// Definirea evenimentului Click pentru buton
-		customButton.Click += (sender, e) => {
+		measureToolBtn.Click += (sender, e) => {
+			// Salvează modificările din câmpuri înainte de a rula codul custom
+            // exec.Writetooltablecell(toolNo, varLength, inputLength.Text);
+            // exec.Writetooltablecell(toolNo, varDiameter, inputDiameter.Text);
+            // exec.Writetooltablecell(toolNo, varType, useRH ? (radioRH.Checked ? "RH" : "NRH") : inputType.Text);
+            // exec.Writetooltablecell(toolNo, varDescription, inputDescription.Text);
+    
 			// Codul specific pentru acest buton
-			exec.AddStatusmessage("Moving to TCP"); // Exemplu de acțiune
-			exec.Code("M200");
-			exec.AddStatusmessage("Measuring Tool"); // Exemplu de acțiune
-			exec.Code("M20331");
-			
-		};
+			exec.AddStatusmessage("Moving to TCP"); 
+			// exec.Code("M200");
+			exec.AddStatusmessage("Measuring Tool"); 
+			// exec.Code("M20331");
+
+			// Reîmprospătează valorile după execuție, dacă este necesar
+            inputLength.Text = exec.Readtooltablecell(toolNo, varLength);
+            // inputDiameter.Text = exec.Readtooltablecell(toolNo, varDiameter);
+            // inputType.Text = exec.Readtooltablecell(toolNo, varType);
+            // inputDescription.Text = exec.Readtooltablecell(toolNo, varDescription);
+        };
 
 
 
@@ -152,7 +166,7 @@ public void RunMacro(int toolNo) {
         toolForm.Controls.Add(labelType);
         toolForm.Controls.Add(labelDescription);
         toolForm.Controls.Add(inputDescription);
-		toolForm.Controls.Add(customButton); // Adăugăm noul buton
+		toolForm.Controls.Add(measureToolBtn); // Adăugăm noul buton
         toolForm.Controls.Add(okButton);
         toolForm.Controls.Add(cancelButton);
 
@@ -189,6 +203,7 @@ public void RunMacro(int toolNo) {
     }
 }
 
+
 // Eveniment pentru validarea inputului numeric
 private void NumericKeyPress(object sender, KeyPressEventArgs e) {
     // Permite doar cifre, punct (.) și backspace
@@ -209,3 +224,25 @@ private void integersKeyPress(object sender, KeyPressEventArgs e) {
         e.Handled = true; // Anulează event-ul dacă caracterul nu este valid
     }
 }
+
+
+
+
+// // Metodă pentru inițializarea/reîmprospătarea câmpurilor
+// void RefreshToolFields(int toolNo) {
+    // inputLength.Text = exec.Readtooltablecell(toolNo, varLength);
+    // inputDiameter.Text = exec.Readtooltablecell(toolNo, varDiameter);
+    // inputType.Text = exec.Readtooltablecell(toolNo, varType);
+    // inputDescription.Text = exec.Readtooltablecell(toolNo, varDescription);
+// }
+
+// // Metodă pentru salvarea valorilor curente din câmpuri în tooltable
+// void SaveCurrentToolValues(int toolNo) {
+    // exec.Writetooltablecell(toolNo, varLength, inputLength.Text);
+    // exec.Writetooltablecell(toolNo, varDiameter, inputDiameter.Text);
+    // exec.Writetooltablecell(toolNo, varType, useRH ? (radioRH.Checked ? "RH" : "NRH") : inputType.Text);
+    // exec.Writetooltablecell(toolNo, varDescription, inputDescription.Text);
+// }
+
+
+

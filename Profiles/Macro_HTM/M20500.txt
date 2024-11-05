@@ -146,7 +146,7 @@ public void RunMacro(int slotNo) {
 
 					string valueDiameter = exec.Readtooltablecell(newTool, varDiameter); //DiameterXX
 					AS3.Setfieldtext(valueDiameter, slotNo+20510); // afisam diametrul sculei din slot
-					AS3.Validatefield(slotNo+20520); // validam inputul
+					AS3.Validatefield(slotNo+20510); // validam inputul
 
 					string valueLength = exec.Readtooltablecell(newTool, varLength); //LengthXX
 					
@@ -164,6 +164,7 @@ public void RunMacro(int slotNo) {
 
 					//afisam numarul sculei in screenset
 					AS3.Setfield(newTool, (slotNo + 20500));
+					AS3.Validatefield(slotNo+20500); // validam inputul
 
                     exec.AddStatusmessage("Slot " + slotNo + " - T" + oldTool + " replaced by T" + newTool);
                 } else {

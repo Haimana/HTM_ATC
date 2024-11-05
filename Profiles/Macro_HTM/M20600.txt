@@ -76,9 +76,10 @@ public void RunMacro(int slotNo) {
 		}
 				// resetam afisarea atat la dezactivare cat si la activare. la activare, slotul nu are scula
 				AS3.Setfield(0,slotNo+20500); // scriem 0 in campul slotului dezactivat - adica se sterge scula din slotul dezactivat
+				AS3.Validatefield(slotNo+20500); // validam inputul
 
 				AS3.Setfieldtext("", slotNo+20510); // dezactivam slotul stergem afisarea
-				AS3.Validatefield(slotNo+20520); // validam inputul
+				AS3.Validatefield(slotNo+20510); // validam inputul
 
 				AS3.Setfieldtext("", slotNo+20520); // dezactivam slotul stergem afisarea 
 				AS3.Validatefield(slotNo+20520); // validam inputul
