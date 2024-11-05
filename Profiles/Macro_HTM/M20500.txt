@@ -153,7 +153,7 @@ public void RunMacro(int slotNo) {
 					AS3.Setfieldtext(valueLength, slotNo+20520); // afisam lungimea sculei din slot
 					AS3.Validatefield(slotNo+20520); // validam inputul
 					
-					string valueType = exec.Readtooltablecell(newTool, varType); //LengthXX
+					string valueType = exec.Readtooltablecell(newTool, varType); //TypeXX
 					if (valueType == "RH") {
 						AS3.SetLED(true, (slotNo+810)); //ledurile sunt de la 801 la 810
 					} else {

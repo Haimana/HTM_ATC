@@ -40680,6 +40680,7 @@ AS3.Addbutton(1575, 110, 72, 40, true, false, 606, 20607, 100);
 AS3.Addbutton(1650, 110, 72, 40, true, false, 607, 20608, 100);
 AS3.Addbutton(1725, 110, 72, 40, true, false, 608, 20609, 100);
 AS3.Addbutton(1800, 110, 72, 40, true, false, 609, 20610, 100);
+AS3.Addbutton(1712, 443, 185, 46, false, false, 999, 20131, 57);
 //Add buttons to jog screen
 AS3jog.Addbutton(253, 362, 65, 65, false, false, 33, 147, 1);
 AS3jog.Addbutton(176, 362, 65, 65, false, false, 34, 148, 1);
@@ -43978,8 +43979,8 @@ AS3.Addfield("", "Arial", "right", 26, -16777216, 1240, 438, 110, "fieldnb", -10
 AS3.Addfield("", "Arial", "right", 26, -16777216, 918, 229, 140, "fieldnb", -1000000, 1000000, 30023, 100);
 AS3.Addfield("", "Arial", "center", 20, -16776961, 1809, 258, 58, "field", -1, 96, 2747, 100);
 AS3.Setfieldtext("0", 2747);
-AS3.Addfield("", "Arial", "right", 16, -16776961, 1800, 285, 80, "field", -10000, 10000, 30024, 6);
-AS3.Addfield("", "Arial", "right", 16, -65536, 1800, 310, 80, "showfield", -10000, 10000, 20330, 6);
+AS3.Addfield("", "Arial", "right", 16, -16776961, 1800, 285, 80, "field", -10000, 10000, 30024, 100);
+AS3.Addfield("", "Arial", "right", 16, -65536, 1800, 310, 80, "showfield", -10000, 10000, 20330, 100);
 //Add textfields to jog screen
 AS3jog.Addfield("", "Arial", "center", 22, -16777216, 90, 223, 71, "fieldnb", 0, 100, 913, 1);
 AS3jog.Setfieldtext("10", 913);
@@ -44278,15 +44279,16 @@ AS3.Addlabel("Probe", "Arial", "left", 18, -1, 1670, 311, 26);
 AS3.Addlabel("Size", "Arial", "left", 18, -1, 1763, 311, 26);
 AS3.Addlabel("Center", "Arial", "left", 18, -1, 1836, 311, 26);
 AS3.Addlabel("Angle", "Arial", "left", 18, -1, 1771, 463, 26);
-AS3.Addlabel("Show ATC screen TC Op.", "Arial", "left", 16, -2302756, 1123, 260, 6);
-AS3.Addlabel("Apply G43 after TC", "Arial", "left", 16, -2302756, 1123, 285, 6);
-AS3.Addlabel("Back to initial XY position", "Arial", "left", 16, -2302756, 1123, 310, 6);
-AS3.Addlabel("Use Repeatable Holders", "Arial", "left", 16, -2302756, 1380, 260, 6);
-AS3.Addlabel("Measure Tools with NRH", "Arial", "left", 16, -2302756, 1380, 285, 6);
-AS3.Addlabel("Save NRH Length in T/T", "Arial", "left", 16, -2302756, 1380, 310, 6);
-AS3.Addlabel("Reference Tool No.", "Arial", "left", 16, -2302756, 1625, 260, 6);
-AS3.Addlabel("Reference Tool Length", "Arial", "left", 16, -2302756, 1625, 285, 6);
-AS3.Addlabel("Measured TCP-TP Z", "Arial", "left", 16, -2302756, 1625, 310, 6);
+AS3.Addlabel("Show ATC screen TC Op.", "Arial", "left", 16, -2302756, 1123, 260, 100);
+AS3.Addlabel("Apply G43 after TC", "Arial", "left", 16, -2302756, 1123, 285, 100);
+AS3.Addlabel("Back to initial XY position", "Arial", "left", 16, -2302756, 1123, 310, 100);
+AS3.Addlabel("Use Repeatable Holders", "Arial", "left", 16, -2302756, 1380, 260, 100);
+AS3.Addlabel("Measure Tools with NRH", "Arial", "left", 16, -2302756, 1380, 285, 100);
+AS3.Addlabel("Save NRH Length in T/T", "Arial", "left", 16, -2302756, 1380, 310, 100);
+AS3.Addlabel("Reference Tool No.", "Arial", "left", 16, -2302756, 1625, 260, 100);
+AS3.Addlabel("Reference Tool Length", "Arial", "left", 16, -2302756, 1625, 285, 100);
+AS3.Addlabel("Measured TCP-TP Z", "Arial", "left", 16, -2302756, 1625, 310, 100);
+AS3.Addlabel("Edit Current Tool", "Arial", "left", 24, -1, 1717, 453, 57);
 //Add labels to jog screen
 //Add lists to main screen
 AS3.Addlist("Arial", "left", 14, -1, -13948375, 1, 5, 661, 241, 350, 2, 1);

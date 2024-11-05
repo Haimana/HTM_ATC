@@ -1,0 +1,211 @@
+/*
+    public struct Tooltablestruct
+    {
+        public int Toolnumber;
+        public int Slot;
+        public double OffsetX;
+        public double OffsetZ;
+        public double Dia;
+        public string Description;
+        public string Type;
+        public string Material;
+    }
+*/
+
+
+// myEvar = Evar;
+// RunMacro(Convert.ToInt32(Evar)); // 
+
+
+RunMacro(exec.Getcurrenttool()); // 
+
+
+#Events
+double? myEvar;
+
+static bool isMacroRunning = false; // Variabila globală pentru a verifica starea macro-ului
+
+// Metoda principală care rulează macro-ul
+public void RunMacro(int toolNo) {
+    if (!isMacroRunning) {
+        isMacroRunning = true; // Setăm starea că macro-ul este în execuție
+
+        bool useRH = AS3.Getcheckboxstate(30002); //false; // Variabila pentru activare RH
+
+        // Declarăm variabilele de acces tooltable
+        var varSlot = Plugininterface.Datatypes.Tooltablecolumnname.Slot;
+        var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
+        var varDiameter = Plugininterface.Datatypes.Tooltablecolumnname.Diameter;
+        var varType = Plugininterface.Datatypes.Tooltablecolumnname.Type;
+        var varDescription = Plugininterface.Datatypes.Tooltablecolumnname.Description;
+
+        // Obținem valorile tooltable pentru scula curentă
+        int valueSlot = Convert.ToInt32(exec.Readtooltablecell(toolNo, varSlot)); // Citim Slot ca int
+        double valueLength = Convert.ToDouble(exec.Readtooltablecell(toolNo, varLength)); // Citim Length ca double
+        double valueDiameter = Convert.ToDouble(exec.Readtooltablecell(toolNo, varDiameter)); // Citim Diameter ca double
+        string valueType = exec.Readtooltablecell(toolNo, varType);
+        string valueDescription = exec.Readtooltablecell(toolNo, varDescription);
+
+        // Inițializăm și configurăm formularul
+        Form toolForm = new Form {
+            // Text = "Edit Tool #" + toolNo,
+            // StartPosition = FormStartPosition.CenterScreen,
+            // FormBorderStyle = FormBorderStyle.FixedDialog,
+            // MinimizeBox = false,
+            // MaximizeBox = false,
+            // ClientSize = new System.Drawing.Size(300, 400),
+            // TopMost = true
+
+
+			Text = "Edit Tool #" + toolNo,
+			StartPosition = FormStartPosition.Manual, // Permite poziționarea manuală
+			Location = new System.Drawing.Point(200, 200), // Setează poziția X, Y pe ecran
+			Size = new System.Drawing.Size(300, 400), // Setează dimensiunea formularului
+			FormBorderStyle = FormBorderStyle.FixedDialog,
+			MinimizeBox = false,
+			MaximizeBox = false,
+			TopMost = true
+
+
+
+
+        };
+
+        // Etichete și câmpuri de input
+        Label labelSlot = new Label { Text = "Slot:", Top = 20, Left = 10, AutoSize = true };
+        TextBox inputSlot = new TextBox { Text = valueSlot.ToString(), Left = 100, Top = 20, Width = 100, ReadOnly = true };
+        // inputSlot.KeyPress += integersKeyPress; // Adăugăm validarea inputului
+        
+        Label labelLength = new Label { Text = "Length:", Top = 60, Left = 10, AutoSize = true };
+        TextBox inputLength = new TextBox { Text = valueLength.ToString(), Left = 100, Top = 60, Width = 100 };
+        inputLength.KeyPress += NumericKeyPress; // Adăugăm validarea inputului
+
+        Label labelDiameter = new Label { Text = "Diameter:", Top = 100, Left = 10, AutoSize = true };
+        TextBox inputDiameter = new TextBox { Text = valueDiameter.ToString(), Left = 100, Top = 100, Width = 100 };
+        inputDiameter.KeyPress += NumericKeyPress; // Adăugăm validarea inputului
+
+        Label labelType = new Label { Text = "Type:", Top = 140, Left = 10, AutoSize = true };
+
+        // Declarația inputType, doar dacă useRH este false
+        TextBox inputType = null;
+
+
+
+
+
+
+
+
+
+
+        RadioButton radioRH = null;
+        RadioButton radioNRH = null;
+
+        // Câmpul Type - Radio buttons
+        if (useRH) {
+            radioRH = new RadioButton { Text = "RH", Top = 140, Left = 100, AutoSize = true };
+            radioNRH = new RadioButton { Text = "NRH", Top = 170, Left = 100, AutoSize = true };
+
+            // Configurarea radio buttons în funcție de valoarea citită
+            radioRH.Checked = (valueType == "RH");
+            radioNRH.Checked = (valueType != "RH");
+            toolForm.Controls.Add(radioRH);
+            toolForm.Controls.Add(radioNRH);
+        } else {
+            // Când useRH este false, adăugăm un TextBox
+            inputType = new TextBox { Text = valueType, Left = 100, Top = 140, Width = 100 };
+            toolForm.Controls.Add(inputType);
+        }
+
+        Label labelDescription = new Label { Text = "Description:", Top = 220, Left = 10, AutoSize = true };
+        TextBox inputDescription = new TextBox { Text = valueDescription, Left = 100, Top = 220, Width = 100 };
+
+
+		// Adăugarea unui nou buton
+		Button customButton = new Button { Text = "Measure Tool", Left = 50, Top = 290, Width = 100 };
+
+
+        // Butoane OK și Cancel
+        Button okButton = new Button { Text = "OK", Left = 50, Top = 330, DialogResult = DialogResult.OK };
+        Button cancelButton = new Button { Text = "Cancel", Left = 150, Top = 330, DialogResult = DialogResult.Cancel };
+
+
+		// Definirea evenimentului Click pentru buton
+		customButton.Click += (sender, e) => {
+			// Codul specific pentru acest buton
+			exec.AddStatusmessage("Moving to TCP"); // Exemplu de acțiune
+			exec.Code("M200");
+			exec.AddStatusmessage("Measuring Tool"); // Exemplu de acțiune
+			exec.Code("M20331");
+			
+		};
+
+
+
+        // Adăugăm elementele în formular
+        toolForm.Controls.Add(labelSlot);
+        toolForm.Controls.Add(inputSlot);
+        toolForm.Controls.Add(labelLength);
+        toolForm.Controls.Add(inputLength);
+        toolForm.Controls.Add(labelDiameter);
+        toolForm.Controls.Add(inputDiameter);
+        toolForm.Controls.Add(labelType);
+        toolForm.Controls.Add(labelDescription);
+        toolForm.Controls.Add(inputDescription);
+		toolForm.Controls.Add(customButton); // Adăugăm noul buton
+        toolForm.Controls.Add(okButton);
+        toolForm.Controls.Add(cancelButton);
+
+        // Afisam formularul și preluăm rezultatul
+        DialogResult result = toolForm.ShowDialog();
+
+        if (result == DialogResult.OK) {
+            // Salvăm noile valori în tooltable
+            exec.Writetooltablecell(toolNo, varSlot, inputSlot.Text); // Salvăm Slot ca int
+            exec.Writetooltablecell(toolNo, varLength, inputLength.Text); // Salvăm Length ca double
+            exec.Writetooltablecell(toolNo, varDiameter, inputDiameter.Text); // Salvăm Diameter ca double
+
+            if (useRH) {
+                // Salvează valoarea radio button-ului selectat
+                string selectedType = radioRH.Checked ? "RH" : "NRH";
+                exec.Writetooltablecell(toolNo, varType, selectedType);
+            } else {
+                // Folosește inputType când useRH este false
+                exec.Writetooltablecell(toolNo, varType, inputType.Text);
+            }
+
+            exec.Writetooltablecell(toolNo, varDescription, inputDescription.Text);
+            exec.AddStatusmessage("Tool #" + toolNo + " updated");
+        } else {
+            // exec.AddStatusmessage("Editarea sculei anulate.");
+        }
+
+        // Resetăm starea macro-ului
+        isMacroRunning = false; 
+        // exec.AddStatusmessage("Macro-ul s-a terminat.");
+    } else {
+        exec.AddStatusmessage("Macro already running! Exiting!");
+        return;
+    }
+}
+
+// Eveniment pentru validarea inputului numeric
+private void NumericKeyPress(object sender, KeyPressEventArgs e) {
+    // Permite doar cifre, punct (.) și backspace
+    if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && e.KeyChar != '.') {
+        e.Handled = true; // Anulează event-ul dacă caracterul nu este valid
+    }
+
+    // Permite doar un singur punct (.) în TextBox
+    if (e.KeyChar == '.' && (sender as TextBox).Text.IndexOf('.') > -1) {
+        e.Handled = true; // Anulează event-ul dacă există deja un punct
+    }
+}
+
+// Eveniment pentru validarea inputului numeric (numai pentru int)
+private void integersKeyPress(object sender, KeyPressEventArgs e) {
+    // Permite doar cifre și backspace
+    if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) {
+        e.Handled = true; // Anulează event-ul dacă caracterul nu este valid
+    }
+}
