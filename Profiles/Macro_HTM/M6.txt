@@ -5,13 +5,17 @@
 *					- show ATC page during TC operation
 *					- apply G43 for new loaded tools (G49 if not)
 *					- back to initial position after TC 
+* 2024.11.06	- adding "Ismacrostopped" check
+*				- adding G43 (if checked) even is the same tool
+*				- adding specific messages for OSSD inputs in macroloop M20101. Vars declared in M99998
+*				- checking spindle stopped with waitTime declared in Spindle settings.
 *
 */
 
 	exec.Stopspin(); 	//Make sure the spindle is OFF
 	exec.Code("M09"); 	//Make sure coolant is OFF
 
-	//definire mesaj sonor de eroare
+	//defining error sound
 	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
 	
 	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
@@ -22,7 +26,25 @@
 		return;
 	}
 
+	// checking spindle
+	int	WaitTimeDRO	= 2761;	// Spindle WaitTime taken from Spindle Setup
+	int	SactDRO	= 870;  // Actspindlespeed field number
+	int maximumWaitTime = Convert.ToInt32(AS3.Getfield(WaitTimeDRO))*1000;
 	
+	while ((Convert.ToDouble(AS3.Getfield(SactDRO)) > 0) && (maximumWaitTime > 0))	{ // Loop until the spindle is stopped
+			exec.Wait(100);		// Wait 50ms
+			maximumWaitTime = maximumWaitTime - 100;	// Decrement timeout counter
+
+			exec.AddStatusmessage("waiting... " + maximumWaitTime);
+
+			if (maximumWaitTime <= 0) {
+				exec.AddStatusmessage("ATC - Error! Spindle not stopped!");
+				errorSound.Play();
+				exec.Stop();
+				return;
+			}
+	}
+
 	// verificam daca exista aer in instalatie, iesim din script daca nu
 	//daca senzorul este activat, adica portul este diferit de 0
 	if (AS3.Getbuttonstate(20202)) { // daca senzorii sunt activati
@@ -132,11 +154,14 @@
 	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
 
+	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 
 //////////////////////////////////////////////////////////////////////////////
 // case 0 - requested tool already loaded - don't have to load same tool again
-	if(newTool == currentTool) return;// Same tool was selected, so do nothing, stop here...
-
+	if(newTool == currentTool) { // Same tool was requested
+		if (applyG43) { exec.Code("G43 H" + currentTool); } else { exec.Code("G49"); }
+		return;
+	}
 
 	if (showATCpage) { // daca checkboxul ptr afisare pagina atc este bifat
 		// ne mutam in pagina de ATC
@@ -179,6 +204,7 @@
 		
 		// moving spindle to safeZ for ATC operations
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -190,6 +216,7 @@
 		// moving spindle in front of receiver slot
 		//exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
 		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack) + rackAxis2 + clearRack); 
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -205,11 +232,13 @@
 		
 		//lowering spindle to releasing Z position (rackZ)
 		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
 		//moving spindle into final docking position
 		exec.Code("G01 G53 " + rackAxis2 + rackY + " F" + tcfeed); 
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
@@ -218,6 +247,7 @@
 		exec.Wait(delay); // Wait 500msec
 
 		if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -232,6 +262,7 @@
 		} else { // when emptyZ == safeZ
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 		}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
@@ -333,12 +364,14 @@
 			} else { // when emptyZ == safeZ
 				exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 			}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 			
 			// moving spindle above emmiter slot
 			exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack) + rackAxis2 + rackY); 
 			// exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 
@@ -357,6 +390,7 @@
 
 			//lowering spindle to loading Z position (rackZ)
 			exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
@@ -369,6 +403,7 @@
 			exec.Wait(delay); // Wait 500msec
 			
 			if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 			
@@ -379,11 +414,13 @@
 			
 			// moving spindle to clearRack
 			exec.Code("G01 G53 " + rackAxis2 + clearRack); 
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
 			// moving spindle to clear Z for ATC operations
 			exec.Code("G00 G53 Z"+ safeZ); // Move Z up
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 	
@@ -425,6 +462,7 @@
 	
 	if (applyG43) { exec.Code("G43 H" + newTool); } else { exec.Code("G49"); }
 	if (backToXY) exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
+	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 	while(exec.IsMoving()){}
 
 

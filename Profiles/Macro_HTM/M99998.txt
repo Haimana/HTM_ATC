@@ -1,7 +1,15 @@
 //This is the Constructor macro which executes once when the application gets loaded
 
-//incarcam setarile de la ATC Setup
 
+//set ossd monitoring variable (for macroloop)
+exec.Setvar(0, 903); // for E-Stop
+exec.Setvar(0, 904); // for X Driver alarm
+exec.Setvar(0, 905); // for Z Driver alarm
+exec.Setvar(0, 906); // for C Driver alarm
+exec.Setvar(0, 907); // for Power Supply
+
+
+// getting ATC settings
 string rackOrientation = AS3.Getfield(30000);
 
 //exec.AddStatusmessage( "rackOrientation = " + rackOrientation );
@@ -35,12 +43,10 @@ AS3jog.Setfieldtext(exec.Readkey("UserTextfields", "20913", "25"), 913); // Set 
 AS3jog.Validatefield(913);
 	
 
-// // preluam pozitia TCP-TP salvata de macro M20330
-// AS3.Setfield(Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "")), 20330); // Set Jog Percent
-// AS3.Validatefield(20330);
 // preluam pozitia TCP-TP salvata de macro M20330
-AS3.Setfieldtext(exec.Readkey("UserTextfields", "20330", "0"), 20330); // Set Jog Percent
+AS3.Setfield(Convert.ToDouble(exec.Readkey("UserTextfields", "20330", "")), 20330); // Set Jog Percent
 AS3.Validatefield(20330);
+
 
 // butonul ptr activare senzori la sloturi
 if (exec.Readkey("UserTextfields", "20202", "false")=="true") AS3.Switchbutton(true, 20202);
