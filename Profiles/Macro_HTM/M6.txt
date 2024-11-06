@@ -34,9 +34,6 @@
 	while ((Convert.ToDouble(AS3.Getfield(SactDRO)) > 0) && (maximumWaitTime > 0))	{ // Loop until the spindle is stopped
 			exec.Wait(100);		// Wait 50ms
 			maximumWaitTime = maximumWaitTime - 100;	// Decrement timeout counter
-
-			exec.AddStatusmessage("waiting... " + maximumWaitTime);
-
 			if (maximumWaitTime <= 0) {
 				exec.AddStatusmessage("ATC - Error! Spindle not stopped!");
 				errorSound.Play();

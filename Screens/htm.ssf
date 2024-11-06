@@ -40654,8 +40654,6 @@ AS3.Addbutton(1816, 768, 94, 44, true, true, 314, 1010, 1);
 AS3.Addbutton(1472, 390, 123, 32, false, false, 321, 1013, 10);
 AS3.Addbutton(1472, 428, 123, 32, false, false, 322, 1014, 10);
 AS3.Addbutton(1131, 370, 32, 32, false, false, 326, 1015, 2);
-AS3.Addbutton(1089, 763, 37, 41, false, false, 0, 5411, 2);
-AS3.Addbutton(1034, 762, 35, 41, false, false, 0, 7777, 2);
 AS3.Addbutton(405, 91, 140, 40, true, false, 500, 20200, 100);
 AS3.Addbutton(546, 91, 140, 40, true, false, 501, 20201, 100);
 AS3.Addbutton(542, 378, 150, 30, true, false, 889, 20202, 100);
