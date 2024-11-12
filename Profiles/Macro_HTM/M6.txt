@@ -210,22 +210,31 @@
 		Yoriginalpos = exec.GetYmachpos();
 		Zoriginalpos = exec.GetZmachpos();
 		
-		// moving spindle in front of receiver slot
-		//exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
-		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack) + rackAxis2 + clearRack); 
+		// // moving spindle in front of receiver slot
+		// //exec.AddStatusmessage("Moving in front of slot at " + rackAxis + (rackX+(oldSlot-1)*stepRack));
+		// exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack) + rackAxis2 + clearRack); 
+		// if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		// while(exec.IsMoving()){}
+		// exec.Wait(delay); // Wait 500msec
+
+		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack)); 
 		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
+
+		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		while(exec.IsMoving()){}
+		exec.Wait(delay); // Wait 500msec
+
 
 		if (!CheckSlot(oldSlot, false)) {  // checking slot sensor (false = empty slot). abort if not as desired
 			exec.AddStatusmessage("Slot " + oldSlot + " reporting error - Aborting!");
 			return;
 		}
 		
-		// incepem suflarea aerului ptr curatare slot receptor daca Air Blow este activat			
-		// if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
+		// Air Blow			
 		if (AS3.Getbuttonstate(20203)) exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
-		// }
 		
 		//lowering spindle to releasing Z position (rackZ)
 		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
@@ -239,7 +248,7 @@
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
-		//activating drawbar pentru eliberare scula
+		//activating drawbar for tool release
 		exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
 		exec.Wait(delay); // Wait 500msec
 
@@ -253,7 +262,9 @@
 			return;
 		}
 
-		//aici trebuie adaugata ridicarea la "emptyZ", cota de deplasare a spindle-ului gol ptr incarcarea noi sculle existente in magazie
+		if (AS3.Getbuttonstate(20203)) exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
+
+		// move to emptyZ - no tool in spindle so we don't have to raise to safeZ
 		if (emptyZ != safeZ) {
 			exec.Code("G01 G53 Z" + emptyZ + " F" + tcfeed); 
 		} else { // when emptyZ == safeZ
@@ -265,10 +276,6 @@
 		
 		exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
 
-		//oprire aer
-		// if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
-		if (AS3.Getbuttonstate(20203)) exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
-		// }
 		
 		//daca nu incarcam alta scula (newtool = 0) revenim pe clearY ptr intoarcere directa in TCP
 		// exec.Code("G00 G53 " + rackAxis2 + clearRack); 
@@ -313,10 +320,13 @@
 
 	}
 
-//daca totusi nu exista slot liber asteptam eliberare manuala a sculei. mutam spindle in TCP
+// if no free slot found, go to TCP for manual removing the currentTool
 	if ((oldSlot == 0) && (currentTool > 0)) {
-		exec.AddStatusmessage("No free slot! Go to TCP! Tool removed!");
+		// exec.AddStatusmessage("No free slot! Go to TCP! Tool removed!");
 		exec.Code("M200"); //macro ce muta masina in TCP
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		while(exec.IsMoving()){}
+		exec.Wait(delay); // Wait 500msec
 		
 	DialogResult result = MessageBox.Show(
 		"Manually remove Tool " + currentTool + " from spindle!\n\nPress OK when done or Cancel to abort!", 
@@ -348,7 +358,7 @@
 				if (newTool == Convert.ToInt32(AS3.Getfield(i+20500))) {
 					newSlot = (i);
 					// exec.AddStatusmessage("ATC - T" + newTool + " found in Slot #" + newSlot);
-					i = 11; // iesim din bucla daca gasim scula ceruta in magazie
+					i = 11; // getting out of loop once the requested tool was found in rack.
 				}
 			}
 		}
@@ -366,8 +376,13 @@
 			exec.Wait(delay); // Wait 500msec
 			
 			// moving spindle above emmiter slot
-			exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack) + rackAxis2 + rackY); 
-			// exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
+			// exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack) + rackAxis2 + rackY); 
+			exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			while(exec.IsMoving()){}
+			exec.Wait(delay); // Wait 500msec		
+
+			exec.Code("G00 G53 " + rackAxis2 + rackY); 
 			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
@@ -377,12 +392,9 @@
 				return;
 			}
 		
-			// incepem suflarea aerului ptr curatare slot receptor			
-			// if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
 			if (AS3.Getbuttonstate(20203)) exec.Setoutpin(airPort, airPin); // Blowing air for cleaning
-			// }
 
-			//activating drawbar pentru cuplare scula scula
+			//activating drawbar for loading tool
 			exec.Setoutpin(drawbarPort, drawbarPin); // Open the chuck with pneumatic valve
 
 			//lowering spindle to loading Z position (rackZ)
@@ -393,10 +405,7 @@
 
 			exec.Clroutpin(drawbarPort, drawbarPin); // Close the chuck with pneumatic valve
 			
-			//oprire aer
-			// if (exec.Readkey("UserTextfields", "20203", "false")=="true") {
 			if (AS3.Getbuttonstate(20203)) exec.Clroutpin(airPort, airPin); // Stop blowing air for cleaning
-			// }
 			exec.Wait(delay); // Wait 500msec
 			
 			if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
@@ -606,127 +615,3 @@ bool CheckSlot(int slotNo, bool requestedStatus)
 }
 
 
-/*
-public bool CheckSlot(int slotNo, bool requestedStatus)
-{
-    // Verificăm inițial starea LED-ului
-    bool currentStatus = AS3.GetLED(slotNo + 830);
-    if (currentStatus == requestedStatus)
-    {
-        return true;
-    }
-
-    // Preluăm timpul de așteptare din variabila configurată
-    int waitTime = Convert.ToInt32(AS3.Getfield(30019));
-    int elapsedTime = 0;
-    int checkInterval = 500; // Intervalul de verificare, în milisecunde
-
-    // Buclă de așteptare până se atinge timpul total de așteptare sau până starea devine cea dorită
-    while (elapsedTime < waitTime)
-    {
-        // Așteptăm `checkInterval` milisecunde
-        System.Threading.Thread.Sleep(checkInterval);
-        elapsedTime += checkInterval;
-
-        // Verificăm din nou starea LED-ului
-        currentStatus = AS3.GetLED(slotNo + 830);
-        if (currentStatus == requestedStatus)
-        {
-            return true;
-        }
-    }
-
-    // Dacă starea LED-ului nu se potrivește după timpul de așteptare, afișăm dialogul Abort/Retry/Ignore
-    while (true)
-    {
-        DialogResult result = MessageBox.Show(
-            "Slot " + slotNo + " Sensor report " + !requestedStatus + "\n" +
-            "Expecting " + requestedStatus + "!!",
-            "Slot Status Mismatch",
-            MessageBoxButtons.AbortRetryIgnore,
-            MessageBoxIcon.Warning,
-            MessageBoxDefaultButton.Button1,
-            MessageBoxOptions.DefaultDesktopOnly
-        );
-
-        // Gestionăm răspunsul utilizatorului
-        if (result == DialogResult.Abort)
-        {
-            exec.Stop();  // Oprește execuția întregului macro
-            // throw new OperationCanceledException("Execuția macro-ului a fost oprită de utilizator.");  // Aruncă o excepție pentru a opri complet execuția
-            return false; // Returnăm false pentru a semnaliza că a fost oprit
-        }
-        else if (result == DialogResult.Ignore)
-        {
-            return true; // Ignorăm discrepanța și continuăm macro-ul
-        }
-        // Dacă se selectează Retry, bucla de așteptare se repetă
-        // Resetăm `elapsedTime` și reîncepem verificarea
-        elapsedTime = 0;
-        while (elapsedTime < waitTime)
-        {
-            System.Threading.Thread.Sleep(checkInterval);
-            elapsedTime += checkInterval;
-
-            currentStatus = AS3.GetLED(slotNo + 830);
-            if (currentStatus == requestedStatus)
-            {
-                return true;
-            }
-        }
-    }
-}
-*/
-
-
-// bool CheckSlot(int slotNo, bool requestedStatus)
-// {
-    // // Obține starea LED-ului corespunzător slotului
-    // bool currentStatus = AS3.GetLED(slotNo + 830);
-
-    // // Verificăm dacă starea LED-ului este deja identică cu `requestedStatus`
-    // if (currentStatus == requestedStatus)
-    // {
-        // return true;
-    // }
-
-    // // Dacă starea LED-ului nu este cea dorită, așteptăm pentru o schimbare
-    // int waitTime = Convert.ToInt32(AS3.Getfield(30019));
-
-    // // Folosim o buclă pentru a repeta timpul de așteptare în caz de Retry
-    // while (true)
-    // {
-        // // Așteptăm `waitTime` milisecunde
-        // System.Threading.Thread.Sleep(waitTime);
-
-        // // Verificăm din nou starea LED-ului
-        // currentStatus = AS3.GetLED(slotNo + 830);
-        // if (currentStatus == requestedStatus)
-        // {
-            // return true;
-        // }
-
-        // // Dacă starea nu s-a schimbat, afișăm dialogul Abort/Retry/Ignore
-        // DialogResult result = MessageBox.Show(
-            // "Starea LED-ului nu coincide cu requestedStatus.\n" +
-            // "Doriți să opriți macro-ul, să încercați din nou sau să ignorați?",
-            // "LED Status Mismatch",
-            // MessageBoxButtons.AbortRetryIgnore,
-            // MessageBoxIcon.Warning,
-			// MessageBoxDefaultButton.Button2,
-			// MessageBoxOptions.ServiceNotification
-       // );
-
-        // // Gestionăm răspunsul utilizatorului
-        // if (result == DialogResult.Abort)
-        // {
-            // exec.Stop();  // Oprește execuția întregului macro
-            // return false; // Returnăm false pentru a semnaliza că a fost oprit
-        // }
-        // else if (result == DialogResult.Ignore)
-        // {
-            // return true; // Ignorăm discrepanța și continuăm macro-ul
-        // }
-        // // Dacă se selectează Retry, bucla se va repeta, așteptând din nou
-    // }
-// }

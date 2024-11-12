@@ -1,5 +1,5 @@
 
-// macro ptr formatarea fieldurilor din atc setup
+// float formatting macro
 
 // get decimals from settings
 string decimals = AS3.Getfield(195);
@@ -15,5 +15,28 @@ for (int i = 30010; i < 30030; i++) {
 	} else {
 		AS3.Setfieldtext(droValue.ToString("F" + decimals), i);
 	}
+	AS3.Validatefield(i);
+}
+
+// formatam valorile din campurile paginii ATC
+for (int i = 20400; i < 20404; i++) {
+	droValue = AS3.Getfielddouble(i);
+	if (i != 20401) { // excluded fields, maybe text fields
+		if (i == 20400) { // integers
+			AS3.Setfieldtext(droValue.ToString("F0"), i);
+		} else { // float formatting for the rest of fields
+			AS3.Setfieldtext(droValue.ToString("F" + decimals), i);
+		}
+	}
+	AS3.Validatefield(i);
+}
+
+for (int i = 20511; i <= 20530; i++) {
+	droValue = AS3.Getfielddouble(i);
+		// if (i == 20400) { // integers
+			// AS3.Setfieldtext(droValue.ToString("F0"), i);
+		// } else { // float formatting for the rest of fields
+			AS3.Setfieldtext(droValue.ToString("F" + decimals), i);
+		// }
 	AS3.Validatefield(i);
 }

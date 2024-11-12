@@ -1,0 +1,2 @@
+// preluam scula urmatoare celei selectate ptr editare
+if ( AS3.Getfieldint(20400) > 1 ) exec.Code("M20400E-1");

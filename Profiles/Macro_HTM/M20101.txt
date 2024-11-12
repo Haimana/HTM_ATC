@@ -13,7 +13,7 @@ for (int i = 0; i < 10; i++) {
 		}				
 	} 	
 	
-// monitored LEDs
+// monitored LEDs - different messages for OSSD inputs
 int[] ledNumbers = { 3, 4, 5, 6, 7 }; // OSSD inputs
 int[] varNumbers = { 903, 904, 905, 906, 907 }; // initiated in M99998 macro
 string[] ledMessagesError = {
