@@ -40,6 +40,7 @@ int savedTool = Convert.ToInt32(exec.Readkey("UserTextfields", "20222", "0"));
 exec.Setcurrenttool(Convert.ToInt32(savedTool));
 exec.Code("G43 H" + savedTool);
 
+if (savedTool > 0) {
 // punem scula activa in campul de editare din TOOLS
 AS3.Setfield(savedTool,20400);
 AS3.Validatefield(20400);
@@ -68,7 +69,7 @@ if (valueTypeInit == "RH") {
 	// AS3.SetLED(false, 934);
 	AS3.Switchbutton(false, 20403);
 	}		
-	
+}	
 		
 // preluam ultima viteza de jog (procent)
 AS3jog.Setfieldtext(exec.Readkey("UserTextfields", "20913", "25"), 913); // Set Jog Percent

@@ -12,6 +12,11 @@ if (!isMacroRunning) {
         isMacroRunning = true; // Setăm starea că macro-ul este în execuție
 
         int toolNo = AS3.Getfieldint(20400); // campul in care se regaseste numarul sculei
+        if (toolNo == 0) { 
+                isMacroRunning = false;
+                return;
+        }
+        
         string newDescription = AS3.Getfield(20401);
         double newDiameter = AS3.Getfielddouble(20402);
         double newLength = AS3.Getfielddouble(20403);

@@ -40050,7 +40050,7 @@ AS3.selectlayer(57);
 AS3.selectlayer(53);
 AS3.selectlayer(46);
 AS3.selectlayer(41);
-AS3.selectlayer(30);
+AS3.selectlayer(27);
 AS3.selectlayer(20);
 AS3.selectlayer(13);
 AS3.selectlayer(8);
@@ -43991,7 +43991,7 @@ AS3.Addfield("", "Arial", "center", 20, -16776961, 1809, 258, 58, "field", -1, 9
 AS3.Setfieldtext("0", 2747);
 AS3.Addfield("", "Arial", "right", 16, -16776961, 1800, 285, 80, "field", -10000, 10000, 30024, 100);
 AS3.Addfield("", "Arial", "right", 16, -65536, 1800, 310, 80, "showfield", -10000, 10000, 20330, 100);
-AS3.Addfield("", "Arial", "center", 20, -16777216, 533, 304, 43, "fieldnb", 1, 96, 20400, 57);
+AS3.Addfield("", "Arial", "center", 20, -16777216, 533, 304, 43, "fieldnb", 0, 96, 20400, 57);
 AS3.Addfield("", "Arial", "left", 16, -16777216, 356, 350, 268, "textfieldnb", 0, 0, 20401, 57);
 AS3.Addfield("", "Arial", "right", 16, -16777216, 355, 388, 90, "fieldnb", -10000000000000, 10000000000000, 20402, 57);
 AS3.Addfield("", "Arial", "right", 16, -16777216, 532, 388, 90, "fieldnb", -10000000000000, 10000000000000, 20403, 57);

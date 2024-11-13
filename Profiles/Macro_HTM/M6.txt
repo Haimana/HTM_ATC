@@ -469,7 +469,7 @@
 	}
 	
 	string newType = exec.Readtooltablecell(newTool, varType); //TypeXX
-	exec.AddStatusmessage("newType = " + newType);
+	// exec.AddStatusmessage("newType = " + newType);
 	
 
 	

@@ -20,6 +20,8 @@ double tcpZpos = AS3.Getfielddouble(30022);
 int minZlimit = AS3.Getfieldint(41);
 int FeedrateSlow = AS3.Getfieldint(2710);
 int FeedrateFast = AS3.Getfieldint(2709);
+int FeedRate = AS3.Getfieldint(30017);
+
 double retractforsecondmeasurement = AS3.Getfielddouble(2706);
 
 // mcZpos position - saved by M20330 macro with Master Tool with known length
@@ -34,9 +36,9 @@ bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first w
 var varLength = Plugininterface.Datatypes.Tooltablecolumnname.Length;
 
 // moving to TCP
-	exec.Code("G53 G0 Z" + tcpZpos);
-	exec.Code("G53 G0 Y" + tcpYpos);
-	exec.Code("G53 G0 X" + tcpXpos);
+	exec.Code("G53 G01 F" + FeedRate + " Z" + tcpZpos);
+	exec.Code("G53 G01 F" + FeedRate + " Y" + tcpYpos);
+	exec.Code("G53 G01 F" + FeedRate + " X" + tcpXpos);
 	while(exec.IsMoving()){}
 
 if(!dodualcycle)
@@ -74,4 +76,4 @@ double currentZpos = exec.GetZmachpos();
 	exec.Code("M20400");
 	
 	// returning to tcpZpos
-	exec.Code("G53 G0 Z" + tcpZpos);
+	exec.Code("G53 G01 F" + FeedRate + " Z" + tcpZpos);
