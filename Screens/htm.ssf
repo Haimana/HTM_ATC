@@ -39912,7 +39912,8 @@ AS3.Loadpicture("BMP/HTM/8ec_rh-nrh.png", "BMP/HTM/8ec_rh-nrh.png",900, false);
 AS3.Loadpicture("BMP/HTM/8ec_btn_plus_off.png", "BMP/HTM/8ec_btn_plus_on.png",901, false);
 AS3.Loadpicture("BMP/HTM/8ec_btn_minus_off.png", "BMP/HTM/8ec_btn_minus_on.png",902, false);
 AS3.Loadpicture("BMP/HTM/8ec_apply_off.png", "BMP/HTM/8ec_apply_on.png",903, false);
-AS3.Loadpicture("BMP/HTM/8ec_measure_off.png", "BMP/HTM/8ec_measure_on.png",905, true);
+AS3.Loadpicture("BMP/HTM/8ec_measure_off.png", "BMP/HTM/8ec_measure_on.png",905, false);
+AS3.Loadpicture("BMP/HTM/8ec_removeTool_up.png", "BMP/HTM/8ec_removeTool_dn.png",906, true);
 //Load images for jog screen
 AS3jog.Loadpicture("BMP/Default2019/plus_up.png", "BMP/Default2019/plus_down.png",22, false);
 AS3jog.Loadpicture("BMP/Default2019/minus_up.png", "BMP/Default2019/minus_down.png",23, false);
@@ -40688,6 +40689,8 @@ AS3.Addbutton(479, 303, 45, 30, false, false, 902, 20402, 57);
 AS3.Addbutton(475, 430, 150, 40, false, false, 903, 20404, 57);
 AS3.Addbutton(350, 302, 75, 30, true, false, 900, 20403, 57);
 AS3.Addbutton(245, 430, 150, 40, false, false, 905, 20405, 57);
+AS3.Addbutton(710, 430, 150, 40, false, false, 906, 20406, 57);
+AS3.Addbutton(1652, 341, 195, 26, false, false, 999, 20330, 100);
 //Add buttons to jog screen
 AS3jog.Addbutton(253, 362, 65, 65, false, false, 33, 147, 1);
 AS3jog.Addbutton(176, 362, 65, 65, false, false, 34, 148, 1);
@@ -44299,6 +44302,7 @@ AS3.Addlabel("Save NRH Length in T/T", "Arial", "left", 16, -2302756, 1380, 310,
 AS3.Addlabel("Reference Tool No.", "Arial", "left", 16, -2302756, 1625, 260, 100);
 AS3.Addlabel("Reference Tool Length", "Arial", "left", 16, -2302756, 1625, 285, 100);
 AS3.Addlabel("Measured TCP-TP Z", "Arial", "left", 16, -2302756, 1625, 310, 100);
+AS3.Addlabel("Measure TCP-TP position", "Arial", "left", 16, -256, 1660, 343, 100);
 //Add labels to jog screen
 //Add lists to main screen
 AS3.Addlist("Arial", "left", 14, -1, -13948375, 1, 5, 661, 241, 350, 2, 1);

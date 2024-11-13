@@ -433,7 +433,8 @@
 			exec.Setcurrenttool(newTool); //Set the current tool -> the new tool
 			// salvam scula din spindle	
 			exec.Writekey("UserTextfields", "20222", Convert.ToString(newTool)); // salvam starea slotului prin scriere 0 in profile	
-			
+			exec.Code("M20400"); // preluam scula curenta in campurile de editare din pagina ATC
+
 			AS3.SetLED(true, (newSlot+820)); // aprindem LED de scula activa pe oldSlot
 			
 		} // aici se termina codul de incarcare a sculei din slot regasit in rack
@@ -455,6 +456,7 @@
 			if (result == DialogResult.OK) {			
 					exec.AddStatusmessage("ATC - T" + newTool + " Manually Loaded!");
 					exec.Setcurrenttool(newTool); //Incarcam noua scula in spindle
+					exec.Code("M20400");
 				} else if (result == DialogResult.Cancel) {
 					exec.AddStatusmessage("ATC - T" + newTool + " Not Loaded!");
 					errorSound.Play();		
