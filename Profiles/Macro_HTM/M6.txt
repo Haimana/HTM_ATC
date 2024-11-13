@@ -151,7 +151,7 @@
 	int currentTool = exec.Getcurrenttool(); // Preluăm scula curentă - oldtool in scriptul Mach
 	int newTool = exec.Getnewtool(); // scula nou ceruta prin M6 - newtool in scriptul Mach
 
-	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 
 //////////////////////////////////////////////////////////////////////////////
 // case 0 - requested tool already loaded - don't have to load same tool again
@@ -201,7 +201,7 @@
 		
 		// moving spindle to safeZ for ATC operations
 		exec.Code("G00 G53 Z"+ safeZ); // Move Z up
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -218,12 +218,12 @@
 		// exec.Wait(delay); // Wait 500msec
 
 		exec.Code("G00 G53 " + rackAxis + (rackX+(oldSlot-1)*stepRack)); 
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
 		exec.Code("G00 G53 " + rackAxis2 + clearRack); 
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -238,13 +238,13 @@
 		
 		//lowering spindle to releasing Z position (rackZ)
 		exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
 		//moving spindle into final docking position
 		exec.Code("G01 G53 " + rackAxis2 + rackY + " F" + tcfeed); 
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
@@ -253,7 +253,7 @@
 		exec.Wait(delay); // Wait 500msec
 
 		if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 
@@ -270,7 +270,7 @@
 		} else { // when emptyZ == safeZ
 			exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 		}
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
@@ -324,7 +324,7 @@
 	if ((oldSlot == 0) && (currentTool > 0)) {
 		// exec.AddStatusmessage("No free slot! Go to TCP! Tool removed!");
 		exec.Code("M200"); //macro ce muta masina in TCP
-		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+		if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 		while(exec.IsMoving()){}
 		exec.Wait(delay); // Wait 500msec
 		
@@ -371,19 +371,19 @@
 			} else { // when emptyZ == safeZ
 				exec.Code("G01 G53 Z" + safeZ + " F" + tcfeed); 
 			}
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 			
 			// moving spindle above emmiter slot
 			// exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack) + rackAxis2 + rackY); 
 			exec.Code("G00 G53 " + rackAxis + (rackX+(newSlot-1)*stepRack)); 
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 
 			exec.Code("G00 G53 " + rackAxis2 + rackY); 
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 
@@ -399,7 +399,7 @@
 
 			//lowering spindle to loading Z position (rackZ)
 			exec.Code("G01 G53 Z" + rackZ + " F" + tcfeed); 
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
@@ -409,7 +409,7 @@
 			exec.Wait(delay); // Wait 500msec
 			
 			if (checkZ != rackZ) exec.Code("G01 G53 Z" + checkZ + " F" + tcfeed);
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec		
 			
@@ -420,13 +420,13 @@
 			
 			// moving spindle to clearRack
 			exec.Code("G01 G53 " + rackAxis2 + clearRack); 
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 
 			// moving spindle to clear Z for ATC operations
 			exec.Code("G00 G53 Z"+ safeZ); // Move Z up
-			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+			if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 			while(exec.IsMoving()){}
 			exec.Wait(delay); // Wait 500msec
 	
@@ -468,7 +468,7 @@
 	
 	if (applyG43) { exec.Code("G43 H" + newTool); } else { exec.Code("G49"); }
 	if (backToXY) exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
-	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); return;}
+	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
 	while(exec.IsMoving()){}
 
 

@@ -13,6 +13,33 @@
 		return;
 	}
 	
+		DialogResult confirmMeasure = MessageBox.Show(
+		"Are you sure you want to measure the TCP TP position?\n\nYou need the Reference Tool!\nYou also have to know the Reference Tool length!\n\nPress OK to continue or Cancel to abort", 
+		"Measure Tool!", 
+		MessageBoxButtons.OKCancel, 
+		MessageBoxIcon.Warning, 
+		MessageBoxDefaultButton.Button1, 
+		MessageBoxOptions.ServiceNotification
+		);
+					
+		if (confirmMeasure == DialogResult.Cancel) {			
+			exec.Stop();
+			return;
+		// } else if (confirmMeasure == DialogResult.OK) {
+			// exec.AddStatusmessage("Moving to TCP"); 
+			// exec.Code("M200");
+			// exec.Code("M20331");
+		} // end code for OK response
+
+
+	// check for master tool
+	if (exec.Getcurrenttool() != AS3.Getfieldint(2747)) {
+		exec.AddStatusmessage("Master Tool not loaded! Master tool " + AS3.Getfieldint(2747));
+		errorSound.Play();
+		exec.Stop();
+		return;
+	}
+		
 // preluam coordonatele TCP (Tool Change Position) din ATC setup
 double tcpXpos = AS3.Getfielddouble(30020);
 double tcpYpos = AS3.Getfielddouble(30021);
@@ -23,19 +50,20 @@ int FeedrateSlow = AS3.Getfieldint(2710);
 int FeedrateFast = AS3.Getfieldint(2709);
 
 // definim feed ptr masurare scula
-int toolMeasureFeed = 1000;
 double retractforsecondmeasurement = AS3.Getfielddouble(2706);
 
 // lungimea master tool
-int masterLength = -15;
+double masterLength = AS3.Getfielddouble(30024);
+// exec.AddStatusmessage("Reference Tool Length = " + masterLength);
 
 bool dodualcycle =  AS3.Getbuttonstate(853); //Do probing from 2 cycles, first with Fast and second with Slow feedrates
-exec.AddStatusmessage(Convert.ToString(dodualcycle));
+// exec.AddStatusmessage(Convert.ToString(dodualcycle));
 
 
 // ne mutam in tcpZpos
-exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
-exec.Code("G53 G1 F" + toolMeasureFeed + " X" + tcpXpos + " Y" + tcpYpos);
+exec.Code("G53 G0 Z" + tcpZpos);
+exec.Code("G53 G0 X" + tcpXpos);
+exec.Code("G53 G0 Y" + tcpYpos);
 while(exec.IsMoving()){}
 
 if(!dodualcycle)
@@ -59,8 +87,8 @@ while(exec.IsMoving()){}
 
 	// salvam mcZpos in profile file	
 	exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
-		exec.Wait(500); // Wait 500msec
+	exec.Wait(500); // Wait 500msec
 	
-exec.Code("G53 G1 F" + toolMeasureFeed + " Z" + tcpZpos);
+exec.Code("G53 G0 Z" + tcpZpos);
 
 //
