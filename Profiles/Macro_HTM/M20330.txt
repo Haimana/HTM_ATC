@@ -45,10 +45,10 @@ double tcpXpos = AS3.Getfielddouble(30020);
 double tcpYpos = AS3.Getfielddouble(30021);
 double tcpZpos = AS3.Getfielddouble(30022);
 
-int minZlimit = AS3.Getfieldint(41);
-int FeedrateSlow = AS3.Getfieldint(2710);
-int FeedrateFast = AS3.Getfieldint(2709);
-int FeedRate = AS3.Getfieldint(30017);
+double minZlimit = AS3.Getfielddouble(41);
+double FeedrateSlow = AS3.Getfielddouble(2710);
+double FeedrateFast = AS3.Getfielddouble(2709);
+double FeedRate = AS3.Getfielddouble(30017);
 
 
 // definim feed ptr masurare scula

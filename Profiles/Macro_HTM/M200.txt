@@ -4,7 +4,7 @@ double parkX = Convert.ToDouble(exec.Readkey("UserTextfields", "30020", "0"));
 double parkY = Convert.ToDouble(exec.Readkey("UserTextfields", "30021", "0"));
 double parkZ = Convert.ToDouble(exec.Readkey("UserTextfields", "30022", "0"));
 
-int FeedRate = AS3.Getfieldint(30017);
+double FeedRate = AS3.Getfielddouble(30017);
 
 if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordinates, stop here...
 {
