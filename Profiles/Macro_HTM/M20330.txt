@@ -84,7 +84,9 @@ while(exec.IsMoving()){}
 	exec.AddStatusmessage("mcZpos = " + mcZpos);
 	mcZpos = exec.GetZmachpos() - masterLength;
 	exec.AddStatusmessage("mcZpos + masterLength = " + mcZpos);
-
+	AS3.Setfield(mcZpos, 20330);
+	AS3.Validatefield(20330);
+	
 	// salvam mcZpos in profile file	
 	exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
 	exec.Wait(500); // Wait 500msec

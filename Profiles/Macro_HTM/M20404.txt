@@ -42,8 +42,14 @@ if (!isMacroRunning) {
                 if (valueDiameterInit != newDiameter) modificari += "\n- Diameter: " + newDiameter;
                 if ((initType != newType) && (newType)) modificari += "\n- Repeatable Holder";
                 if ((initType != newType) && (!newType)) modificari += "\n- Non-Repeatable Holder";
-                
-       			DialogResult result = MessageBox.Show("Save new data for Tool " +  toolNo +"?\n" + modificari, "Update Tool", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.ServiceNotification);
+
+       			DialogResult result = MessageBox.Show(
+                "Save new data for Tool " +  toolNo +"?\n" + modificari, 
+                "Update Tool", 
+                MessageBoxButtons.YesNo, 
+                MessageBoxIcon.Question, 
+                MessageBoxDefaultButton.Button2, 
+                MessageBoxOptions.ServiceNotification);
                 
                 if (result == DialogResult.Yes) {
                     // Salvăm noile valori în tooltable

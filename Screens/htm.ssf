@@ -44771,7 +44771,6 @@ AS3.Addcheckbox("", "Arial", 15, 0, 1326, 285, 30005, 100);
 AS3.Addcheckbox("", "Arial", 15, 0, 1326, 310, 30004, 100);
 AS3.Addcheckbox("", "Arial", 15, 0, 1575, 260, 30002, 100);
 AS3.Addcheckbox("", "Arial", 15, 0, 1575, 285, 30003, 100);
-AS3.Addcheckbox("", "Arial", 15, 0, 1575, 310, 30007, 100);
 //Add checkboxes to jog screen
 //Add sliders to main screen
 AS3.Addslider(1065, 666, 135, -65536, -5658199, 0, 300, false, false, 232, 1);

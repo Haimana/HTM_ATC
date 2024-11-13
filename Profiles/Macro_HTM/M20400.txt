@@ -20,9 +20,7 @@ public void RunMacro(int increment = 0) {
         if (increment == 1) { loadedTool = AS3.Getfieldint(20400) + 1; }
         if (increment == -1) { loadedTool = AS3.Getfieldint(20400) - 1; }
         
-        // loadedTool = AS3.Getfieldint(20400);
-
-        // punem scula activa in campul de editare din TOOLS
+       // punem scula activa in campul de editare din TOOLS
         AS3.Setfield(loadedTool,20400);
         AS3.Validatefield(20400);
                 // Declarăm variabilele de acces tooltable
@@ -42,16 +40,9 @@ public void RunMacro(int increment = 0) {
         AS3.Validatefield(20402);
         AS3.Setfield(valueLengthInit,20403); // camp descriere
         AS3.Validatefield(20403);
-        // if (valueTypeInit == "RH") {
-            // AS3.SetLED(true, 934);
-        // } else {
-            // AS3.SetLED(false, 934);
-        // }            
 		if (valueTypeInit == "RH") {
-			// AS3.SetLED(true, 934);
 			AS3.Switchbutton(true, 20403);
 			} else {
-			// AS3.SetLED(false, 934);
 			AS3.Switchbutton(false, 20403);
 			}		
 	

@@ -104,6 +104,7 @@
 	bool showATCpage = AS3.Getcheckboxstate(30006);
 	bool applyG43 = AS3.Getcheckboxstate(30005);
 	bool backToXY = AS3.Getcheckboxstate(30004);
+	bool measureNRH = AS3.Getcheckboxstate(30003);
 	
 	// Define position vars for return to this position at the end of the macro
 	double Xoriginalpos = exec.GetXmachpos();
@@ -456,6 +457,7 @@
 			if (result == DialogResult.OK) {			
 					exec.AddStatusmessage("ATC - T" + newTool + " Manually Loaded!");
 					exec.Setcurrenttool(newTool); //Incarcam noua scula in spindle
+					exec.Writekey("UserTextfields", "20222", Convert.ToString(newTool)); // salvam starea slotului prin scriere 0 in profile	
 					exec.Code("M20400");
 				} else if (result == DialogResult.Cancel) {
 					exec.AddStatusmessage("ATC - T" + newTool + " Not Loaded!");
@@ -466,8 +468,12 @@
 		}				
 	}
 	
-	// Move back to start point
+	string newType = exec.Readtooltablecell(newTool, varType); //TypeXX
+	exec.AddStatusmessage("newType = " + newType);
 	
+
+	
+	if (measureNRH && newType != "RH") { exec.AddStatusmessage("pornim M20331"); exec.Code("M20331"); exec.AddStatusmessage("dupa M20331"); }
 	if (applyG43) { exec.Code("G43 H" + newTool); } else { exec.Code("G49"); }
 	if (backToXY) exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
 	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}

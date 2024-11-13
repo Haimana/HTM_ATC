@@ -60,14 +60,18 @@ double currentZpos = exec.GetZmachpos();
 
     exec.Writetooltablecell(currentTool, varLength, Convert.ToString(currenToolOffset)); // 
     exec.Callbutton(780); // Apelarea butonului pentru salvarea tooltable-ului
-	exec.Code("M99998");  //refreshing data
 	exec.Code("G43 H" + currentTool);
 
-	// salvam mcZpos in profile file	
-	//exec.Writekey("UserTextfields", "20330", Convert.ToString(mcZpos)); //	
-		exec.Wait(500); // Wait 500msec
+	// search for the currentTool in slots. Update fields if found.
+	for (int i = 1; i <= 10; i++) {
+        if (currentTool == AS3.Getfieldint(20500 + i)) { 
+            AS3.Setfieldtext(Convert.ToString(currenToolOffset), i+20520); // afisam lungimea sculei din slot
+            AS3.Validatefield(i+20520); // validam inputul                      
+        }
+	}
 	
-	//ne intoarcem in tcpZpos
-exec.Code("G53 G0 Z" + tcpZpos);
-
-//
+	// updating tool edit fields
+	exec.Code("M20400");
+	
+	// returning to tcpZpos
+	exec.Code("G53 G0 Z" + tcpZpos);
