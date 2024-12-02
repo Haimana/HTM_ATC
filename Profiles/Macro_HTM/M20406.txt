@@ -18,6 +18,9 @@ if (oldTool != 0) {
 		exec.Setcurrenttool(0);
 		AS3.Setfield(0, 2652); 
 		AS3.Validatefield(2652);
+
+		// salvam scula incarcata in spindle ptr preluare la pornirea urmatoarei sesiuni uccnc
+		exec.Writekey("UserTextfields", "20222", "0"); // salvam starea slotului prin scriere 0 in profile
 		
 				// search for the toolNo in slots. Update fields if found.
 				for (int i = 1; i <= 10; i++) {

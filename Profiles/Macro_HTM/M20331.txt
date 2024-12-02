@@ -46,7 +46,8 @@ if(!dodualcycle)
   exec.Code("G31 Z" + minZlimit + "F" + FeedrateFast); // Do the Z probing with Fast feedrate first
   while(exec.IsMoving()){}
 
-  exec.Code("G91 G0 Z" + retractforsecondmeasurement);
+  // exec.Code("G91 G0 Z" + retractforsecondmeasurement);
+  exec.Code("G91 G1 Z" + retractforsecondmeasurement + " F" + FeedrateFast);
   exec.Code("G90"); 
 }
 while(exec.IsMoving()){}
