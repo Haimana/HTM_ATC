@@ -1,4 +1,5 @@
-//exec.AddStatusmessage("Evar = " + Evar);
+// M20500 - HTM_ATC macro - by SeB
+// ATC Page - macro for assigning a specific tool to active slots. It is called by M20501-M20510 macros
 
 myEvar = Evar;
 

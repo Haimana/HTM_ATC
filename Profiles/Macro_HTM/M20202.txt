@@ -1,4 +1,5 @@
-//bool status = AS3.Getbuttonstate(20202);
+// M20202 - HTM_ATC macro - by SeB
+// ATC Setup page - Slot Sensors ON/OFF button - enable/disable slot sensors
 
 RunMacro(AS3.Getbuttonstate(20202));
 
@@ -6,10 +7,9 @@ RunMacro(AS3.Getbuttonstate(20202));
 
 static bool isMacroRunning = false; // Variabila globală pentru a verifica starea macro-ului
 
-// Metoda principală care rulează macro-ul
 public void RunMacro(bool status) {
     if (!isMacroRunning) {
-        isMacroRunning = true; // Setăm starea că macro-ul este în execuție
+        isMacroRunning = true; 
 		
 		if (!status)
 		{

@@ -1,3 +1,7 @@
+// M20131 - HTM_ATC macro - by SeB
+// unused - old macro for tool edit
+
+
 /*
     public struct Tooltablestruct
     {

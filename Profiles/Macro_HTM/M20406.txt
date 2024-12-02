@@ -1,3 +1,5 @@
+// M20406 - HTM_ATC macro - by SeB
+// ATC Page - ***Remove Tool*** button. Will remove the current tool from spindle. The tool have to be removed manually from spindle.
 
 int oldTool = exec.Getcurrenttool();
 if (oldTool != 0) {

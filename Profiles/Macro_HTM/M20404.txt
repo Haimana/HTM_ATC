@@ -1,4 +1,5 @@
-// macro ptr aplicare modificari la scula editata in screenset
+// M20404 - HTM_ATC macro - by SeB
+// ATC Page - ***APPLY*** button. Will save the tool parameters in tool table.
 
 RunMacro(); 
 

@@ -1,5 +1,6 @@
+// M20203 - HTM_ATC macro - by SeB
+// ATC Setup page - Air Blow ON/OFF button - enable/disable air blow during TC operation (dedust)
 
-// bool status = AS3.Getbuttonstate(20203);
 RunMacro(AS3.Getbuttonstate(20203));
 
 #Events

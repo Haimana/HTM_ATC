@@ -1,8 +1,9 @@
-///////////////////
+// M20400 - HTM_ATC macro - by SeB
+// ATC Page - macro for handling the Edit Tool fields. Is called by PLUS and MINUS buttons for tool selection
 
 myEvar = Evar;
 
-RunMacro(Convert.ToInt32(Evar)); //Evar este nr slotului
+RunMacro(Convert.ToInt32(Evar)); // Evar = increment. 1 for selecting next tool, -1 for selecting previous tool
 
 #Events
 

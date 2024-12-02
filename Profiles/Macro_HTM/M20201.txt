@@ -1,14 +1,15 @@
+// M20201 - HTM_ATC macro - by SeB
+// ATC Setup page - Along Y button - change the rack orientation parallel with Y axis
 
 RunMacro(AS3.Getbuttonstate(20201));
 
 #Events
 
-static bool isMacroRunning = false; // Variabila globală pentru a verifica starea macro-ului
+static bool isMacroRunning = false; // check running macro
 
-// Metoda principală care rulează macro-ul
 public void RunMacro(bool status) {
-    if (!isMacroRunning) {
-        isMacroRunning = true; // Setăm starea că macro-ul este în execuție
+    if (!isMacroRunning) { // if not running, run it
+        isMacroRunning = true; // // macro is running
 		
 		if (!status)
 		{
@@ -31,7 +32,7 @@ public void RunMacro(bool status) {
 		}
 
         // Resetăm starea macro-ului
-        isMacroRunning = false; 
+        isMacroRunning = false; // macro not running anymore
     } else {
         return;
     }

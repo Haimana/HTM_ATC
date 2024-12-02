@@ -1,4 +1,5 @@
-// macro ptr masurare scula din pagina ATC
+// M20405 - HTM_ATC macro - by SeB
+// ATC Page - ***Measure Tool*** button. Will measure the selected tool.
 
 //definire mesaj sonor de eroare
 System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");

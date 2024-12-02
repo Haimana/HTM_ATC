@@ -1,4 +1,5 @@
-// macro for enable/disable rack's slots
+// M20600 - HTM_ATC macro - by SeB
+// ATC Setup Page - macro called for slots setup. It is called by ***M20601-M20610*** macros
 
 myEvar = Evar;
 

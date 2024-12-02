@@ -1,8 +1,8 @@
+// M20330 - HTM_ATC macro - by SeB
 // macro for calibrating TCP sensor, the mcZ position
 // will be need a "Master Tool" with known length
 // have to be done once per setup or re-done if the sensor is repositioned
 
-	//definire mesaj sonor de eroare
 	System.Media.SoundPlayer errorSound = new System.Media.SoundPlayer(Application.StartupPath + @"\Flashscreen\SOUND\error.wav");
 	
 	if(!exec.GetLED(56)||!exec.GetLED(57)||!exec.GetLED(58)) // If machine was not homed then it is unsafe to move in machine coordina	tes, stop here...
@@ -25,11 +25,7 @@
 		if (confirmMeasure == DialogResult.Cancel) {			
 			exec.Stop();
 			return;
-		// } else if (confirmMeasure == DialogResult.OK) {
-			// exec.AddStatusmessage("Moving to TCP"); 
-			// exec.Code("M200");
-			// exec.Code("M20331");
-		} // end code for OK response
+		} 
 
 
 	// check for master tool

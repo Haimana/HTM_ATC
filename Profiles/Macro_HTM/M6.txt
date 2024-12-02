@@ -473,7 +473,7 @@
 	
 
 	
-	if (measureNRH && newType != "RH") { exec.AddStatusmessage("pornim M20331"); exec.Code("M20331"); exec.AddStatusmessage("dupa M20331"); }
+	if (measureNRH && newType != "RH") { exec.AddStatusmessage("Calling M20331"); exec.Code("M20331"); exec.AddStatusmessage("M20331 Finished"); }
 	if (applyG43) { exec.Code("G43 H" + newTool); } else { exec.Code("G49"); }
 	if (backToXY) exec.Code("G00 G53 X" + Xoriginalpos + " Y" + Yoriginalpos); // + " Z" + Zoriginalpos);
 	if(exec.Ismacrostopped()){exec.AddStatusmessage("ATC - TC Aborted!"); exec.Clroutpin(airPort, airPin); exec.Clroutpin(drawbarPort, drawbarPin); return;}
@@ -508,14 +508,14 @@ int LEDnum(int port,int pin) {
   int LED = 0;
    
   if ((port < 1) || (port > 5) || (pin < 1) || (pin > 17)) {
-     LED = -1;
+	 LED = -1;
   } else {
-      if (port == 2) { LED = 68; }
-      if (port == 3) { LED = 85; }
-      if (port == 4) { LED = 102; }
-      if (port == 5) { LED = 119; }
+	  if (port == 2) { LED = 68; }
+	  if (port == 3) { LED = 85; }
+	  if (port == 4) { LED = 102; }
+	  if (port == 5) { LED = 119; }
  
-      LED += pin;
+	  LED += pin;
   }
   return LED;
 }

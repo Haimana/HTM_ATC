@@ -1,5 +1,5 @@
-// bool status = AS3.Getbuttonstate(20200);
-//exec.AddStatusmessage( "status = " + status );
+// M20403 - HTM_ATC macro - by SeB
+// ATC Page - ***RH/NRH*** button. Will change the tool type. RH = Repeatable Holder, NRH = NonRepeatable Holder (need measure when loading)
 
 RunMacro(AS3.Getbuttonstate(20403));
 
