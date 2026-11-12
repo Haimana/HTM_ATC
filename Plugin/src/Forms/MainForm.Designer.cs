@@ -137,16 +137,40 @@ namespace Plugins.Forms
             this.tabToolRack.Text = "Tool Rack";
             this.tabToolRack.Padding = new System.Windows.Forms.Padding(10);
             
-            this.panelSlots.Location = new System.Drawing.Point(10, 10);
-            this.panelSlots.Size = new System.Drawing.Size(760, 440);
+            this.panelSlots.Location = new System.Drawing.Point(10, 50);
+            this.panelSlots.Size = new System.Drawing.Size(760, 400);
             this.tabToolRack.Controls.Add(this.panelSlots);
+
+            // Tool Rack buttons
+            this.btnRemoveToolFromSpindle = new System.Windows.Forms.Button();
+            this.btnRemoveToolFromSpindle.Text = "Remove Tool from Spindle";
+            this.btnRemoveToolFromSpindle.Location = new System.Drawing.Point(10, 10);
+            this.btnRemoveToolFromSpindle.Size = new System.Drawing.Size(180, 30);
+            this.btnRemoveToolFromSpindle.Click += new System.EventHandler(this.btnRemoveToolFromSpindle_Click);
+            this.tabToolRack.Controls.Add(this.btnRemoveToolFromSpindle);
+
+            this.btnEditTool = new System.Windows.Forms.Button();
+            this.btnEditTool.Text = "Edit Tool...";
+            this.btnEditTool.Location = new System.Drawing.Point(200, 10);
+            this.btnEditTool.Size = new System.Drawing.Size(100, 30);
+            this.btnEditTool.Click += new System.EventHandler(this.btnEditTool_Click);
+            this.tabToolRack.Controls.Add(this.btnEditTool);
+
+            var lblClickHint = new System.Windows.Forms.Label();
+            lblClickHint.Text = "Click a slot to assign a tool";
+            lblClickHint.Location = new System.Drawing.Point(320, 15);
+            lblClickHint.Size = new System.Drawing.Size(200, 20);
+            lblClickHint.ForeColor = System.Drawing.Color.Gray;
+            this.tabToolRack.Controls.Add(lblClickHint);
 
             for (int i = 0; i < 10; i++)
             {
                 var panel = new System.Windows.Forms.Panel();
-                panel.Location = new System.Drawing.Point((i % 5) * 150 + 5, (i / 5) * 210 + 5);
-                panel.Size = new System.Drawing.Size(140, 200);
+                panel.Location = new System.Drawing.Point((i % 5) * 150 + 5, (i / 5) * 190 + 5);
+                panel.Size = new System.Drawing.Size(140, 180);
                 panel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+                panel.Cursor = System.Windows.Forms.Cursors.Hand;
+                panel.Click += new System.EventHandler(this.SlotPanel_Click);
                 
                 var lblSlot = new System.Windows.Forms.Label();
                 lblSlot.Text = $"Slot {i + 1}";
@@ -165,24 +189,47 @@ namespace Plugins.Forms
                 var lblTool = new System.Windows.Forms.Label();
                 lblTool.Name = "lblTool";
                 lblTool.Text = "-";
-                lblTool.Location = new System.Drawing.Point(5, 35);
-                lblTool.Size = new System.Drawing.Size(130, 50);
-                lblTool.Font = new System.Drawing.Font("Arial", 28F, System.Drawing.FontStyle.Bold);
+                lblTool.Location = new System.Drawing.Point(5, 28);
+                lblTool.Size = new System.Drawing.Size(130, 45);
+                lblTool.Font = new System.Drawing.Font("Arial", 26F, System.Drawing.FontStyle.Bold);
                 lblTool.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
                 panel.Controls.Add(lblTool);
 
+                var lblToolInfo = new System.Windows.Forms.Label();
+                lblToolInfo.Name = "lblToolInfo";
+                lblToolInfo.Text = "";
+                lblToolInfo.Location = new System.Drawing.Point(5, 75);
+                lblToolInfo.Size = new System.Drawing.Size(130, 18);
+                lblToolInfo.Font = new System.Drawing.Font("Arial", 8F);
+                lblToolInfo.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+                lblToolInfo.ForeColor = System.Drawing.Color.DarkBlue;
+                panel.Controls.Add(lblToolInfo);
+
                 var lblSensor = new System.Windows.Forms.Label();
                 lblSensor.Text = "Sensor:";
-                lblSensor.Location = new System.Drawing.Point(5, 95);
+                lblSensor.Location = new System.Drawing.Point(5, 100);
                 lblSensor.Size = new System.Drawing.Size(50, 20);
                 panel.Controls.Add(lblSensor);
 
                 var ledSensor = new System.Windows.Forms.Panel();
                 ledSensor.Name = "ledSensor";
-                ledSensor.Location = new System.Drawing.Point(60, 93);
+                ledSensor.Location = new System.Drawing.Point(60, 98);
                 ledSensor.Size = new System.Drawing.Size(24, 24);
                 ledSensor.BackColor = System.Drawing.Color.Gray;
                 panel.Controls.Add(ledSensor);
+
+                var lblActive = new System.Windows.Forms.Label();
+                lblActive.Text = "Active:";
+                lblActive.Location = new System.Drawing.Point(5, 130);
+                lblActive.Size = new System.Drawing.Size(50, 20);
+                panel.Controls.Add(lblActive);
+
+                var ledActive = new System.Windows.Forms.Panel();
+                ledActive.Name = "ledActive";
+                ledActive.Location = new System.Drawing.Point(60, 128);
+                ledActive.Size = new System.Drawing.Size(24, 24);
+                ledActive.BackColor = System.Drawing.Color.DarkGray;
+                panel.Controls.Add(ledActive);
 
                 slotPanels[i] = panel;
                 this.panelSlots.Controls.Add(panel);
@@ -407,5 +454,8 @@ namespace Plugins.Forms
         private System.Windows.Forms.CheckBox chkSimPressureOK;
         private System.Windows.Forms.CheckBox chkSimOssdOK;
         private System.Windows.Forms.Button btnRunTestCycle;
+        
+        private System.Windows.Forms.Button btnRemoveToolFromSpindle;
+        private System.Windows.Forms.Button btnEditTool;
     }
 }

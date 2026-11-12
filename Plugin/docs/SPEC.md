@@ -224,6 +224,47 @@ When false, the plugin's own saved values are used.
 
 ## State Machine: M6 Tool Change
 
+### M6 Decision Logic
+
+The M6 tool change follows this decision tree (matching original HTM_ATC behavior):
+
+1. **Same tool requested (NewTool == CurrentTool)**
+   - Apply G43 H{tool} if `applyG43` option enabled, else G49
+   - Return immediately (no tool change needed)
+
+2. **Current tool in spindle (CurrentTool > 0)**
+   - **Case A: Tool has own enabled slot in rack (from tooltable Slot column)**
+     - Return tool to its assigned slot
+   - **Case B: Tool not in rack or slot disabled → Find first free enabled slot**
+     - Assign the free slot to this tool (write to tooltable Slot column, save tooltable)
+     - Return tool to the newly assigned slot
+   - **Case C: No free slot available**
+     - Move to TCP (G53 safe Z first, then TCP X/Y/Z)
+     - Show modal dialog: "Manually remove Tool {n} from spindle! OK when done / Cancel to abort"
+     - **OK**: Set current tool to 0, continue to load new tool
+     - **Cancel**: Play error sound, exec.Stop(), status "ATC - TC Aborted", return error
+
+3. **New tool requested (NewTool > 0)**
+   - **Case A: Tool found in enabled slot in rack**
+     - Pick tool from its slot
+   - **Case B: Tool not in rack or slot disabled**
+     - Move to TCP (G53 safe Z first, then TCP X/Y/Z)
+     - Show modal dialog: "Manually load Tool {n} in spindle! OK when done / Cancel to abort"
+     - **OK**: Set current tool to NewTool, continue to measure/apply offset
+     - **Cancel**: Play error sound, exec.Stop(), status "Tool {n} not loaded", return error
+
+4. **Post tool change**
+   - If `measureNRH` and tool type != "RH": call measurement (M20331)
+   - If `applyG43`: exec.Code("G43 H{tool}"), else exec.Code("G49")
+   - If `backToXY`: move to original XY position
+   - If `showATCPage`: restore original screen layer
+
+### Modal Dialog Threading
+
+Manual load/unload dialogs run on the **macro thread** (the thread calling `Informplugin_event`)
+as standalone TopMost forms with no owner. They NEVER `Invoke` into the plugin UI thread.
+This prevents deadlock because the dialogs don't wait on the UI thread.
+
 ### States
 
 ```
@@ -1019,17 +1060,28 @@ C:\UCCNC\2118\Profiles\HTM_ATC_Config_ATCdev.json
 - Status messages area
 
 #### Tab 2: Tool Rack
-- Visual representation of 10-slot rack
-- Per-slot display:
+- **"Remove Tool from Spindle" button**: Ports M20406 behavior
+  - Confirm dialog: "Are you sure you want to remove current tool T{n}?"
+  - OK: Set current tool to 0, update UI
+  - Cancel: Do nothing
+- **"Edit Tool..." button**: Edit tool diameter, length, type (RH/NRH) in tooltable
+- **Visual representation of 10-slot rack**: Click slot to assign tool
+- **Per-slot display:**
   - Slot number
-  - Tool number (editable)
-  - Tool diameter (from tooltable)
-  - Tool length (from tooltable)
-  - Enabled/disabled toggle
-  - Sensor state LED
-  - Active tool indicator
-- Assign tool button
-- Clear slot button
+  - Tool number (large, bold)
+  - Tool info (D{diameter} L{length} {type})
+  - Enabled/disabled LED (green/gray)
+  - Sensor state LED (yellow = tool present, gray = empty)
+  - Active tool LED (orange if tool in spindle, gray otherwise)
+- **Slot Click → Assignment Dialog** (ports M20500 behavior):
+  - "New tool for slot N" input (0 = empty)
+  - Validates: 0..96
+  - Refuses if same tool already in slot (error sound + status message)
+  - Refuses if tool already in another slot (error sound + status message)
+  - Updates tooltable Slot column for old and new tool
+  - Saves tooltable (exec.Callbutton(780))
+  - Updates plugin JSON immediately
+- **On startup**: Reconciles tooltable with config, logs mismatches, uses tooltable as source of truth
 
 #### Tab 3: Setup
 - Grouped settings panels matching wizard steps

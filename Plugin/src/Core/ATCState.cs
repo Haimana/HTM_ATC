@@ -1,6 +1,8 @@
 using System;
 using System.Globalization;
 using System.Threading;
+using System.Windows.Forms;
+using Plugins.Forms;
 
 namespace Plugins.Core
 {
@@ -21,6 +23,7 @@ namespace Plugins.Core
         DropVerifyToolInSlot,
         DropAirBlowOff,
         DropRaiseToEmpty,
+        DropCloseDrawbar,
         DropExitFork,
         PickMoveToSlotXY,
         PickLowerToApproach,
@@ -38,8 +41,10 @@ namespace Plugins.Core
         ApplyOffset,
         RestorePosition,
         Complete,
-        ManualUnload,
-        ManualLoad,
+        ManualUnloadMoveToTCP,
+        ManualUnloadDialog,
+        ManualLoadMoveToTCP,
+        ManualLoadDialog,
         Abort,
         Fault
     }
@@ -48,6 +53,7 @@ namespace Plugins.Core
     {
         private readonly ATCConfig _config;
         private readonly Plugininterface.Entry _uc;
+        private readonly ToolTableManager _toolTable;
         
         private readonly object _stateLock = new object();
 
@@ -63,12 +69,16 @@ namespace Plugins.Core
         public bool IsRunning => CurrentState != ToolChangeState.Idle;
         
         private volatile bool _stopRequested;
+        private bool _assignedNewSlotToCurrent;
 
         public ATCStateMachine(ATCConfig config, Plugininterface.Entry uc)
         {
             _config = config;
             _uc = uc;
+            _toolTable = new ToolTableManager(uc);
         }
+        
+        public ToolTableManager ToolTable => _toolTable;
 
         private void Log(string message)
         {
@@ -103,6 +113,7 @@ namespace Plugins.Core
                 CurrentState = ToolChangeState.ValidateRequest;
                 LastError = null;
                 _stopRequested = false;
+                _assignedNewSlotToCurrent = false;
             }
 
             return RunStateMachine();
@@ -165,6 +176,9 @@ namespace Plugins.Core
                         case ToolChangeState.DropRaiseToEmpty:
                             ExecuteDropRaiseToEmpty();
                             break;
+                        case ToolChangeState.DropCloseDrawbar:
+                            ExecuteDropCloseDrawbar();
+                            break;
                         case ToolChangeState.DropExitFork:
                             ExecuteDropExitFork();
                             break;
@@ -216,11 +230,17 @@ namespace Plugins.Core
                         case ToolChangeState.Complete:
                             ExecuteComplete();
                             break;
-                        case ToolChangeState.ManualUnload:
-                            ExecuteManualUnload();
+                        case ToolChangeState.ManualUnloadMoveToTCP:
+                            ExecuteManualUnloadMoveToTCP();
                             break;
-                        case ToolChangeState.ManualLoad:
-                            ExecuteManualLoad();
+                        case ToolChangeState.ManualUnloadDialog:
+                            ExecuteManualUnloadDialog();
+                            break;
+                        case ToolChangeState.ManualLoadMoveToTCP:
+                            ExecuteManualLoadMoveToTCP();
+                            break;
+                        case ToolChangeState.ManualLoadDialog:
+                            ExecuteManualLoadDialog();
                             break;
                         case ToolChangeState.Abort:
                             ExecuteAbort();
@@ -354,43 +374,81 @@ namespace Plugins.Core
         {
             OldSlot = 0;
             NewSlot = 0;
+            _assignedNewSlotToCurrent = false;
+
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] DetermineSlots: CurrentTool=T{CurrentTool}, NewTool=T{NewTool}");
 
             if (CurrentTool > 0)
             {
-                OldSlot = _config.FindToolSlot(CurrentTool);
+                OldSlot = _toolTable.FindToolSlot(CurrentTool);
+                
+                if (OldSlot > 0 && _config.GetSlot(OldSlot)?.Enabled == true)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Current tool T{CurrentTool} has own enabled slot {OldSlot}");
+                }
+                else if (OldSlot > 0 && _config.GetSlot(OldSlot)?.Enabled != true)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Current tool T{CurrentTool} slot {OldSlot} is disabled, finding free slot");
+                    OldSlot = 0;
+                }
+                
                 if (OldSlot == 0)
                 {
-                    OldSlot = _config.FindFirstEmptySlot();
-                    Log($"Current tool T{CurrentTool} not in rack, will use empty slot {OldSlot}");
-                }
-                else
-                {
-                    Log($"Current tool T{CurrentTool} has slot {OldSlot}");
+                    int freeSlot = _config.FindFirstEmptySlot();
+                    if (freeSlot > 0)
+                    {
+                        OldSlot = freeSlot;
+                        _assignedNewSlotToCurrent = true;
+                        Log($"[T{Thread.CurrentThread.ManagedThreadId}] Current tool T{CurrentTool} assigned to first free slot {OldSlot}");
+                    }
+                    else
+                    {
+                        Log($"[T{Thread.CurrentThread.ManagedThreadId}] No free slot for current tool T{CurrentTool}, manual unload required");
+                    }
                 }
             }
 
             if (NewTool > 0)
             {
-                NewSlot = _config.FindToolSlot(NewTool);
-                Log(NewSlot > 0 
-                    ? $"New tool T{NewTool} found in slot {NewSlot}" 
-                    : $"New tool T{NewTool} not in rack, manual load required");
+                NewSlot = _toolTable.FindToolSlot(NewTool);
+                if (NewSlot > 0 && _config.GetSlot(NewSlot)?.Enabled == true)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] New tool T{NewTool} found in enabled slot {NewSlot}");
+                }
+                else if (NewSlot > 0 && _config.GetSlot(NewSlot)?.Enabled != true)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] New tool T{NewTool} slot {NewSlot} is disabled, manual load required");
+                    NewSlot = 0;
+                }
+                else
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] New tool T{NewTool} not in rack, manual load required");
+                }
             }
 
             if (CurrentTool > 0 && OldSlot > 0)
             {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Decision: DROP current tool T{CurrentTool} to slot {OldSlot}");
                 CurrentState = ToolChangeState.DropMoveToSlotXY;
             }
             else if (CurrentTool > 0 && OldSlot == 0)
             {
-                CurrentState = ToolChangeState.ManualUnload;
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Decision: MANUAL UNLOAD current tool T{CurrentTool} (no slot available)");
+                CurrentState = ToolChangeState.ManualUnloadMoveToTCP;
             }
-            else if (NewTool > 0)
+            else if (NewTool > 0 && NewSlot > 0)
             {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Decision: PICK new tool T{NewTool} from slot {NewSlot}");
                 CurrentState = ToolChangeState.PickMoveToSlotXY;
+            }
+            else if (NewTool > 0 && NewSlot == 0)
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Decision: MANUAL LOAD new tool T{NewTool} (not in rack)");
+                CurrentState = ToolChangeState.ManualLoadMoveToTCP;
             }
             else
             {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Decision: COMPLETE (nothing to do)");
                 CurrentState = ToolChangeState.Complete;
             }
         }
@@ -522,6 +580,11 @@ namespace Plugins.Core
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
             
+            CurrentState = ToolChangeState.DropCloseDrawbar;
+        }
+
+        private void ExecuteDropCloseDrawbar()
+        {
             Log("Closing drawbar");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, false);
 
@@ -530,6 +593,14 @@ namespace Plugins.Core
             {
                 slot.ToolNumber = CurrentTool;
             }
+            
+            if (_assignedNewSlotToCurrent)
+            {
+                _toolTable.WriteToolSlot(CurrentTool, OldSlot);
+                _toolTable.SaveToolTable();
+                Log($"Assigned slot {OldSlot} to tool T{CurrentTool} in tooltable");
+            }
+            
             SetCurrentTool(0);
             
             Log($"Tool T{CurrentTool} dropped in slot {OldSlot}");
@@ -548,9 +619,15 @@ namespace Plugins.Core
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
             
-            if (NewTool > 0)
+            if (NewTool > 0 && NewSlot > 0)
             {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] After drop: proceed to pick T{NewTool} from slot {NewSlot}");
                 CurrentState = ToolChangeState.PickMoveToSlotXY;
+            }
+            else if (NewTool > 0 && NewSlot == 0)
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] After drop: proceed to manual load T{NewTool}");
+                CurrentState = ToolChangeState.ManualLoadMoveToTCP;
             }
             else
             {
@@ -562,7 +639,7 @@ namespace Plugins.Core
         {
             if (NewSlot == 0)
             {
-                CurrentState = ToolChangeState.ManualLoad;
+                CurrentState = ToolChangeState.ManualLoadMoveToTCP;
                 return;
             }
 
@@ -737,6 +814,15 @@ namespace Plugins.Core
 
         private void ExecuteMeasureIfNeeded()
         {
+            if (_config.Options.MeasureNonRH && NewTool > 0)
+            {
+                var toolInfo = _toolTable.ReadToolInfo(NewTool);
+                if (toolInfo != null && toolInfo.Type != "RH")
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Tool T{NewTool} is NRH, measurement would be required");
+                    Log("Note: Measurement macro (M20331) call not yet implemented");
+                }
+            }
             CurrentState = ToolChangeState.ApplyOffset;
         }
 
@@ -772,18 +858,132 @@ namespace Plugins.Core
             CurrentState = ToolChangeState.Idle;
         }
 
-        private void ExecuteManualUnload()
+        private void ExecuteManualUnloadMoveToTCP()
         {
-            Log("Manual unload required - tool not in rack");
-            CurrentState = ToolChangeState.Fault;
-            LastError = "Manual unload not implemented";
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] Manual unload: no slot for T{CurrentTool}, moving to TCP");
+            
+            Log($"Moving to safe Z: {F(_config.Heights.ZSafe)}");
+            ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            if (CheckStopRequested())
+            {
+                CurrentState = ToolChangeState.Abort;
+                return;
+            }
+            
+            Log($"Moving to TCP: X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+            ExecuteGCode($"G00 G53 X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+            WaitForMotionComplete();
+            
+            Log($"Moving TCP Z: {F(_config.TCP.Z)}");
+            ExecuteGCode($"G00 G53 Z{F(_config.TCP.Z)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            CurrentState = ToolChangeState.ManualUnloadDialog;
         }
 
-        private void ExecuteManualLoad()
+        private void ExecuteManualUnloadDialog()
         {
-            Log("Manual load required - tool not in rack");
-            CurrentState = ToolChangeState.Fault;
-            LastError = "Manual load not implemented";
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] Showing manual removal dialog for T{CurrentTool}");
+            
+            DialogResult result = ToolChangeDialogs.ShowManualRemoveDialog(CurrentTool);
+            
+            if (result == DialogResult.OK)
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] User confirmed manual removal of T{CurrentTool}");
+                SetCurrentTool(0);
+                CurrentTool = 0;
+                
+                if (NewTool > 0 && NewSlot > 0)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Proceeding to pick T{NewTool} from slot {NewSlot}");
+                    CurrentState = ToolChangeState.PickMoveToSlotXY;
+                }
+                else if (NewTool > 0 && NewSlot == 0)
+                {
+                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Proceeding to manual load T{NewTool}");
+                    CurrentState = ToolChangeState.ManualLoadMoveToTCP;
+                }
+                else
+                {
+                    CurrentState = ToolChangeState.Complete;
+                }
+            }
+            else
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] User cancelled manual removal");
+                LastError = "ATC - TC Aborted";
+                PlayErrorSound();
+                CurrentState = ToolChangeState.Fault;
+            }
+        }
+
+        private void ExecuteManualLoadMoveToTCP()
+        {
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] Manual load: T{NewTool} not in rack, moving to TCP");
+            
+            Log($"Moving to safe Z: {F(_config.Heights.ZSafe)}");
+            ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            if (CheckStopRequested())
+            {
+                CurrentState = ToolChangeState.Abort;
+                return;
+            }
+            
+            Log($"Moving to TCP: X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+            ExecuteGCode($"G00 G53 X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+            WaitForMotionComplete();
+            
+            Log($"Moving TCP Z: {F(_config.TCP.Z)}");
+            ExecuteGCode($"G00 G53 Z{F(_config.TCP.Z)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            CurrentState = ToolChangeState.ManualLoadDialog;
+        }
+
+        private void ExecuteManualLoadDialog()
+        {
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] Showing manual load dialog for T{NewTool}");
+            
+            DialogResult result = ToolChangeDialogs.ShowManualLoadDialog(NewTool);
+            
+            if (result == DialogResult.OK)
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] User confirmed manual load of T{NewTool}");
+                SetCurrentTool(NewTool);
+                CurrentTool = NewTool;
+                CurrentState = ToolChangeState.MeasureIfNeeded;
+            }
+            else
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] User cancelled manual load");
+                LastError = $"Tool T{NewTool} not loaded";
+                PlayErrorSound();
+                CurrentState = ToolChangeState.Fault;
+            }
+        }
+
+        private void PlayErrorSound()
+        {
+            try
+            {
+                string soundPath = System.IO.Path.Combine(
+                    System.Windows.Forms.Application.StartupPath,
+                    @"Flashscreen\SOUND\error.wav");
+                if (System.IO.File.Exists(soundPath))
+                {
+                    var player = new System.Media.SoundPlayer(soundPath);
+                    player.Play();
+                }
+            }
+            catch { }
         }
 
         private void ExecuteAbort()

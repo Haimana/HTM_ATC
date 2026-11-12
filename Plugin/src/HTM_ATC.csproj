@@ -51,7 +51,9 @@
     <Compile Include="Core\ATCState.cs" />
     <Compile Include="Core\SafetyMonitor.cs" />
     <Compile Include="Core\PluginLogger.cs" />
+    <Compile Include="Core\ToolTableManager.cs" />
     <Compile Include="Persistence\ConfigStore.cs" />
+    <Compile Include="Forms\ToolChangeDialogs.cs" />
     <Compile Include="Forms\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

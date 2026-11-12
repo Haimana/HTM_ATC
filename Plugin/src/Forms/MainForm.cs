@@ -39,6 +39,21 @@ namespace Plugins.Forms
             SetupUI();
             SetupUITimer();
             SetupBackgroundWorker();
+            
+            ReconcileToolTableWithConfig();
+        }
+        
+        private void ReconcileToolTableWithConfig()
+        {
+            try
+            {
+                _stateMachine.ToolTable.ReconcileWithConfig(_configStore.Config);
+                _configStore.Save();
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.Log($"Error reconciling tooltable: {ex.Message}");
+            }
         }
 
         private void SetupUI()
@@ -152,6 +167,9 @@ namespace Plugins.Forms
         private void UpdateSlotDisplay()
         {
             var config = _configStore.Config;
+            int currentTool = 0;
+            try { currentTool = _uc.Getcurrenttool(); }
+            catch { }
             
             for (int i = 0; i < 10; i++)
             {
@@ -161,17 +179,42 @@ namespace Plugins.Forms
                 if (panel == null) continue;
 
                 var lblTool = panel.Controls["lblTool"] as Label;
+                var lblToolInfo = panel.Controls["lblToolInfo"] as Label;
                 var ledSensor = panel.Controls["ledSensor"] as Panel;
                 var ledEnabled = panel.Controls["ledEnabled"] as Panel;
+                var ledActive = panel.Controls["ledActive"] as Panel;
                 
                 if (lblTool != null)
                 {
                     lblTool.Text = slot.ToolNumber > 0 ? $"T{slot.ToolNumber}" : "-";
                 }
                 
+                if (lblToolInfo != null && slot.ToolNumber > 0)
+                {
+                    var toolInfo = _stateMachine.ToolTable.ReadToolInfo(slot.ToolNumber);
+                    if (toolInfo != null)
+                    {
+                        lblToolInfo.Text = $"D{toolInfo.Diameter:F1} L{toolInfo.Length:F1} {toolInfo.Type}";
+                    }
+                    else
+                    {
+                        lblToolInfo.Text = "";
+                    }
+                }
+                else if (lblToolInfo != null)
+                {
+                    lblToolInfo.Text = "";
+                }
+                
                 if (ledEnabled != null)
                 {
                     ledEnabled.BackColor = slot.Enabled ? Color.Lime : Color.Gray;
+                }
+                
+                if (ledActive != null)
+                {
+                    bool isActive = slot.ToolNumber > 0 && slot.ToolNumber == currentTool;
+                    ledActive.BackColor = isActive ? Color.Orange : Color.DarkGray;
                 }
                 
                 if (ledSensor != null && config.IO.SlotSensors.Enabled)
@@ -498,6 +541,223 @@ namespace Plugins.Forms
             }
             
             _configStore.Save();
+        }
+
+        private void SlotPanel_Click(object sender, EventArgs e)
+        {
+            var panel = sender as Panel;
+            if (panel == null) return;
+            
+            int slotIndex = Array.IndexOf(slotPanels, panel);
+            if (slotIndex < 0 || slotIndex >= 10) return;
+            
+            int slotNumber = slotIndex + 1;
+            var slot = _configStore.Config.Slots[slotIndex];
+            
+            if (!slot.Enabled)
+            {
+                LogMessage($"Slot {slotNumber} is disabled");
+                return;
+            }
+            
+            int currentToolInSlot = _stateMachine.ToolTable.FindToolInSlot(slotNumber);
+            
+            int? newTool = ToolChangeDialogs.ShowSlotAssignmentDialog(slotNumber, currentToolInSlot);
+            
+            if (!newTool.HasValue)
+                return;
+            
+            int newToolNum = newTool.Value;
+            
+            if (newToolNum < 0 || newToolNum > 96)
+            {
+                LogMessage("Invalid tool number (0-96)");
+                PlayErrorSound();
+                return;
+            }
+            
+            if (newToolNum == currentToolInSlot && newToolNum > 0)
+            {
+                LogMessage($"Same Tool T{newToolNum} already in slot {slotNumber}");
+                PlayErrorSound();
+                return;
+            }
+            
+            if (newToolNum > 0)
+            {
+                int existingSlot = _stateMachine.ToolTable.FindToolSlot(newToolNum);
+                if (existingSlot > 0 && existingSlot != slotNumber)
+                {
+                    LogMessage($"T{newToolNum} is already in Slot {existingSlot}");
+                    PlayErrorSound();
+                    return;
+                }
+            }
+            
+            if (currentToolInSlot > 0)
+            {
+                _stateMachine.ToolTable.WriteToolSlot(currentToolInSlot, 0);
+            }
+            
+            if (newToolNum > 0)
+            {
+                _stateMachine.ToolTable.WriteToolSlot(newToolNum, slotNumber);
+            }
+            
+            _stateMachine.ToolTable.SaveToolTable();
+            
+            slot.ToolNumber = newToolNum;
+            _configStore.Save();
+            
+            if (currentToolInSlot > 0 && newToolNum > 0)
+            {
+                LogMessage($"Slot {slotNumber}: T{currentToolInSlot} replaced by T{newToolNum}");
+            }
+            else if (newToolNum > 0)
+            {
+                LogMessage($"Slot {slotNumber}: T{newToolNum} assigned");
+            }
+            else
+            {
+                LogMessage($"Slot {slotNumber}: Cleared (was T{currentToolInSlot})");
+            }
+            
+            UpdateSlotDisplay();
+        }
+
+        private void btnRemoveToolFromSpindle_Click(object sender, EventArgs e)
+        {
+            int currentTool = 0;
+            try { currentTool = _uc.Getcurrenttool(); }
+            catch { }
+            
+            if (currentTool == 0)
+            {
+                LogMessage("No tool in spindle");
+                return;
+            }
+            
+            DialogResult result = ToolChangeDialogs.ShowConfirmRemoveFromSpindleDialog(currentTool);
+            
+            if (result == DialogResult.OK)
+            {
+                try
+                {
+                    _uc.Setcurrenttool(0);
+                    LogMessage($"Tool T{currentTool} removed from spindle");
+                    UpdateStatusDisplay();
+                    UpdateSlotDisplay();
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"Error: {ex.Message}");
+                }
+            }
+        }
+
+        private void btnEditTool_Click(object sender, EventArgs e)
+        {
+            int? toolNum = ShowToolNumberInputDialog();
+            if (!toolNum.HasValue)
+                return;
+            
+            var info = _stateMachine.ToolTable.ReadToolInfo(toolNum.Value);
+            if (info == null)
+            {
+                info = new ToolInfo { ToolNumber = toolNum.Value, Diameter = 0, Length = 0, Type = "NRH" };
+            }
+            
+            double diameter = info.Diameter;
+            double length = info.Length;
+            string toolType = info.Type;
+            
+            if (ToolChangeDialogs.ShowToolEditDialog(toolNum.Value, ref diameter, ref length, ref toolType))
+            {
+                _stateMachine.ToolTable.WriteToolInfo(toolNum.Value, diameter, length, toolType);
+                _stateMachine.ToolTable.SaveToolTable();
+                LogMessage($"Tool T{toolNum.Value} updated: D={diameter:F3}, L={length:F3}, Type={toolType}");
+            }
+        }
+
+        private int? ShowToolNumberInputDialog()
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Edit Tool";
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MinimizeBox = false;
+                dialog.MaximizeBox = false;
+                dialog.ClientSize = new Size(250, 120);
+
+                Label label = new Label
+                {
+                    Text = "Enter tool number to edit (1-96):",
+                    Top = 15,
+                    Left = 15,
+                    Width = 220
+                };
+
+                TextBox inputBox = new TextBox
+                {
+                    Left = 75,
+                    Top = 45,
+                    Width = 100,
+                    Text = "1"
+                };
+
+                Button okButton = new Button
+                {
+                    Text = "OK",
+                    Left = 50,
+                    Top = 80,
+                    Width = 70,
+                    DialogResult = DialogResult.OK
+                };
+
+                Button cancelButton = new Button
+                {
+                    Text = "Cancel",
+                    Left = 130,
+                    Top = 80,
+                    Width = 70,
+                    DialogResult = DialogResult.Cancel
+                };
+
+                dialog.Controls.Add(label);
+                dialog.Controls.Add(inputBox);
+                dialog.Controls.Add(okButton);
+                dialog.Controls.Add(cancelButton);
+                dialog.AcceptButton = okButton;
+                dialog.CancelButton = cancelButton;
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    int toolNum;
+                    if (int.TryParse(inputBox.Text, out toolNum) && toolNum >= 1 && toolNum <= 96)
+                    {
+                        return toolNum;
+                    }
+                    MessageBox.Show("Invalid tool number (1-96)", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return null;
+            }
+        }
+        
+        private void PlayErrorSound()
+        {
+            try
+            {
+                string soundPath = System.IO.Path.Combine(
+                    Application.StartupPath,
+                    @"Flashscreen\SOUND\error.wav");
+                if (System.IO.File.Exists(soundPath))
+                {
+                    var player = new System.Media.SoundPlayer(soundPath);
+                    player.Play();
+                }
+            }
+            catch { }
         }
 
         public void ForceClose()
