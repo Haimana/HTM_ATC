@@ -35,6 +35,7 @@ namespace Plugins
                 
                 string profilesFolder = Path.Combine(uccncPath, "Profiles");
                 PluginLogger.Initialize(profilesFolder, _profileName);
+                PluginLogger.Log($"=== HTM_ATC Plugin v{PluginVersion.Version} ===");
                 PluginLogger.Log($"Init_event: profile={_profileName}");
                 
                 _configStore = new ConfigStore(uccncPath, _profileName);
@@ -52,7 +53,7 @@ namespace Plugins
         {
             Properties.author = "HTM_ATC Project";
             Properties.pluginname = "HTM_ATC";
-            Properties.pluginversion = "1.0.2";
+            Properties.pluginversion = PluginVersion.Version;
             return Properties;
         }
 

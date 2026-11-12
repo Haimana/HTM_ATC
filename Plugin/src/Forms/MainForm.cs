@@ -47,8 +47,13 @@ namespace Plugins.Forms
         {
             try
             {
-                _stateMachine.ToolTable.ReconcileWithConfig(_configStore.Config);
-                _configStore.Save();
+                int currentTool = 0;
+                try { currentTool = _uc.Getcurrenttool(); }
+                catch { }
+                
+                _stateMachine.ToolTable.ReconcileWithConfig(_configStore.Config, currentTool);
+                
+                _configStore.SaveWithBackup();
             }
             catch (Exception ex)
             {
@@ -545,10 +550,22 @@ namespace Plugins.Forms
 
         private void SlotPanel_Click(object sender, EventArgs e)
         {
-            var panel = sender as Panel;
-            if (panel == null) return;
+            int slotIndex = -1;
             
-            int slotIndex = Array.IndexOf(slotPanels, panel);
+            var control = sender as Control;
+            if (control != null && control.Tag is int)
+            {
+                slotIndex = (int)control.Tag;
+            }
+            else
+            {
+                var panel = sender as Panel;
+                if (panel != null)
+                {
+                    slotIndex = Array.IndexOf(slotPanels, panel);
+                }
+            }
+            
             if (slotIndex < 0 || slotIndex >= 10) return;
             
             int slotNumber = slotIndex + 1;

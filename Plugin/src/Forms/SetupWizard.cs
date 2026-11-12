@@ -12,6 +12,7 @@ namespace Plugins.Forms
     {
         private readonly ConfigStore _configStore;
         private readonly Plugininterface.Entry _uc;
+        private readonly ToolTableManager _toolTable;
         private ATCConfig _tempConfig;
         
         private int _currentStep = 0;
@@ -42,6 +43,7 @@ namespace Plugins.Forms
         {
             _configStore = configStore;
             _uc = uc;
+            _toolTable = new ToolTableManager(uc);
             _tempConfig = CloneConfig(_configStore.Config);
             
             InitializeComponent();
@@ -756,6 +758,46 @@ namespace Plugins.Forms
                 c.Options.ShowATCPage = _tempConfig.Options.ShowATCPage;
                 c.Options.AirBlowDuringTC = _tempConfig.Options.AirBlowDuringTC;
             });
+            
+            WriteSlotAssignmentsToTooltable();
+        }
+        
+        private void WriteSlotAssignmentsToTooltable()
+        {
+            try
+            {
+                PluginLogger.Log("Writing slot assignments to tooltable from wizard...");
+                bool anyWrites = false;
+                
+                for (int slot = 1; slot <= 10; slot++)
+                {
+                    int toolInConfig = _tempConfig.Slots[slot - 1].ToolNumber;
+                    if (toolInConfig > 0)
+                    {
+                        int currentSlotInTable = _toolTable.FindToolSlot(toolInConfig);
+                        if (currentSlotInTable != slot)
+                        {
+                            _toolTable.WriteToolSlot(toolInConfig, slot);
+                            PluginLogger.Log($"  T{toolInConfig} home slot = {slot}");
+                            anyWrites = true;
+                        }
+                    }
+                }
+                
+                if (anyWrites)
+                {
+                    _toolTable.SaveToolTable();
+                    PluginLogger.Log("Tooltable saved after wizard configuration");
+                }
+                else
+                {
+                    PluginLogger.Log("No tooltable changes needed");
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.Log($"Error writing tooltable: {ex.Message}");
+            }
         }
 
         private void btnImportProfile_Click(object sender, EventArgs e)

@@ -814,16 +814,159 @@ namespace Plugins.Core
 
         private void ExecuteMeasureIfNeeded()
         {
-            if (_config.Options.MeasureNonRH && NewTool > 0)
+            if (!_config.Options.MeasureNonRH || NewTool <= 0)
             {
-                var toolInfo = _toolTable.ReadToolInfo(NewTool);
-                if (toolInfo != null && toolInfo.Type != "RH")
-                {
-                    Log($"[T{Thread.CurrentThread.ManagedThreadId}] Tool T{NewTool} is NRH, measurement would be required");
-                    Log("Note: Measurement macro (M20331) call not yet implemented");
-                }
+                CurrentState = ToolChangeState.ApplyOffset;
+                return;
             }
+            
+            var toolInfo = _toolTable.ReadToolInfo(NewTool);
+            if (toolInfo == null || toolInfo.Type == "RH")
+            {
+                Log($"[T{Thread.CurrentThread.ManagedThreadId}] Tool T{NewTool} is RH or info unavailable, skipping measurement");
+                CurrentState = ToolChangeState.ApplyOffset;
+                return;
+            }
+            
+            Log($"[T{Thread.CurrentThread.ManagedThreadId}] Tool T{NewTool} is NRH, measuring tool length...");
+            AddStatusMessage($"Measuring tool T{NewTool} length...");
+            
+            if (!PerformToolMeasurement())
+            {
+                CurrentState = ToolChangeState.ApplyOffset;
+                return;
+            }
+            
             CurrentState = ToolChangeState.ApplyOffset;
+        }
+        
+        private bool PerformToolMeasurement()
+        {
+            try
+            {
+                double fastFeed = _config.Probe.FastFeed;
+                double slowFeed = _config.Probe.SlowFeed;
+                double retract = _config.Probe.Retract;
+                bool dualCycle = _config.Probe.DualCycle;
+                double minZ = _config.Probe.MinZ;
+                
+                if (_config.Probe.UseUCCNCSettings)
+                {
+                    fastFeed = GetFieldDouble(2709, 500);
+                    slowFeed = GetFieldDouble(2710, 50);
+                    retract = GetFieldDouble(2706, 2);
+                    dualCycle = GetButton(853);
+                    minZ = GetFieldDouble(41, -200);
+                }
+                
+                Log($"Probe settings: FastFeed={fastFeed}, SlowFeed={slowFeed}, Retract={retract}, DualCycle={dualCycle}, MinZ={minZ}");
+                
+                if (IsSimulationMode())
+                {
+                    Log("[SIM] Tool measurement simulated - no actual probe");
+                    AddStatusMessage($"[SIM] Tool T{NewTool} measured (simulated)");
+                    return true;
+                }
+                
+                Log($"Moving to safe Z: {F(_config.Heights.ZSafe)}");
+                ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
+                WaitForMotionComplete();
+                
+                Log($"Moving to TCP for measurement: X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+                ExecuteGCode($"G00 G53 X{F(_config.TCP.X)} Y{F(_config.TCP.Y)}");
+                WaitForMotionComplete();
+                
+                Log($"Probing with G31 to Z{F(minZ)} F{F(fastFeed)}");
+                ExecuteGCode($"G31 G53 Z{F(minZ)} F{F(fastFeed)}");
+                WaitForMotionComplete();
+                
+                if (!GetLED(244))
+                {
+                    Log("WARNING: First probe did not trigger (LED 244 not set)");
+                    AddStatusMessage($"Tool T{NewTool} probe failed - sensor not triggered");
+                    return false;
+                }
+                
+                double probedZ = GetMachineZ();
+                Log($"First probe hit at Z{F(probedZ)}");
+                
+                if (dualCycle)
+                {
+                    Log($"Retracting {retract}mm for second probe");
+                    ExecuteGCode($"G00 G91 Z{F(retract)}");
+                    WaitForMotionComplete();
+                    ExecuteGCode("G90");
+                    
+                    Log($"Second probe at slow feed F{F(slowFeed)}");
+                    ExecuteGCode($"G31 G53 Z{F(minZ)} F{F(slowFeed)}");
+                    WaitForMotionComplete();
+                    
+                    if (!GetLED(244))
+                    {
+                        Log("WARNING: Second probe did not trigger");
+                        AddStatusMessage($"Tool T{NewTool} slow probe failed");
+                        return false;
+                    }
+                    
+                    probedZ = GetMachineZ();
+                    Log($"Second probe hit at Z{F(probedZ)}");
+                }
+                
+                double toolLength = Math.Abs(probedZ - _config.Heights.ZSafe);
+                Log($"Calculated tool length: {F(toolLength)}");
+                
+                _toolTable.WriteToolInfo(NewTool, 
+                    _toolTable.ReadToolInfo(NewTool)?.Diameter ?? 0,
+                    toolLength,
+                    "NRH");
+                _toolTable.SaveToolTable();
+                
+                Log($"Tool T{NewTool} length {F(toolLength)} written to tooltable");
+                AddStatusMessage($"Tool T{NewTool} measured: L={toolLength:F3}");
+                
+                Log($"Raising to safe Z after measurement");
+                ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
+                WaitForMotionComplete();
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log($"Tool measurement error: {ex.Message}");
+                AddStatusMessage($"Tool T{NewTool} measurement error: {ex.Message}");
+                return false;
+            }
+        }
+        
+        private double GetFieldDouble(int fieldNum, double defaultValue)
+        {
+            try
+            {
+                string val = _uc.Getfield(true, fieldNum);
+                if (double.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                    return d;
+            }
+            catch { }
+            return defaultValue;
+        }
+        
+        private bool GetButton(int buttonNum)
+        {
+            try
+            {
+                return _uc.Getbuttonstate(buttonNum);
+            }
+            catch { }
+            return false;
+        }
+        
+        private void AddStatusMessage(string message)
+        {
+            try
+            {
+                _uc.AddStatusmessage(message);
+            }
+            catch { }
         }
 
         private void ExecuteApplyOffset()

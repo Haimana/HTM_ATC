@@ -93,6 +93,75 @@ namespace Plugins.Persistence
                 }
             }
         }
+        
+        public void SaveWithBackup()
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    bool existingHasData = false;
+                    string existingJson = null;
+                    
+                    if (File.Exists(_configPath))
+                    {
+                        existingJson = File.ReadAllText(_configPath, Encoding.UTF8);
+                        var existingConfig = DeserializeConfig(existingJson);
+                        
+                        for (int i = 0; i < existingConfig.Slots.Count; i++)
+                        {
+                            if (existingConfig.Slots[i].ToolNumber > 0)
+                            {
+                                existingHasData = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (existingHasData)
+                    {
+                        string bakPath = _configPath + ".bak";
+                        File.WriteAllText(bakPath, existingJson, Encoding.UTF8);
+                        PluginLogger.Log($"Backup created: {bakPath}");
+                        
+                        PluginLogger.Log("Config slots BEFORE save:");
+                        var existingConfig = DeserializeConfig(existingJson);
+                        for (int i = 0; i < existingConfig.Slots.Count; i++)
+                        {
+                            if (existingConfig.Slots[i].ToolNumber > 0)
+                            {
+                                PluginLogger.Log($"  Slot {i+1}: T{existingConfig.Slots[i].ToolNumber}");
+                            }
+                        }
+                        
+                        PluginLogger.Log("Config slots AFTER save:");
+                        for (int i = 0; i < _config.Slots.Count; i++)
+                        {
+                            if (_config.Slots[i].ToolNumber > 0)
+                            {
+                                PluginLogger.Log($"  Slot {i+1}: T{_config.Slots[i].ToolNumber}");
+                            }
+                        }
+                    }
+                    
+                    _config.LastModified = DateTime.UtcNow;
+                    string json = SerializeConfig(_config);
+                    
+                    string directory = Path.GetDirectoryName(_configPath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    
+                    File.WriteAllText(_configPath, json, Encoding.UTF8);
+                    PluginLogger.LogConfigSave();
+                }
+                catch (Exception ex)
+                {
+                    PluginLogger.LogException("ConfigStore.SaveWithBackup", ex);
+                }
+            }
+        }
 
         public void UpdateConfig(Action<ATCConfig> updateAction)
         {

@@ -158,34 +158,102 @@ namespace Plugins.Core
             }
         }
 
-        public void ReconcileWithConfig(ATCConfig config)
+        public void ReconcileWithConfig(ATCConfig config, int currentSpindleTool)
         {
-            PluginLogger.Log("Reconciling tooltable with plugin config...");
+            PluginLogger.Log($"Reconciling home slots (tooltable) with config... Spindle tool=T{currentSpindleTool}");
             
-            bool anyMismatch = false;
-
+            bool wroteSomethingToTooltable = false;
+            bool configHasData = false;
+            bool tooltableHasData = false;
+            
+            for (int slot = 1; slot <= 10; slot++)
+            {
+                if (config.Slots[slot - 1].ToolNumber > 0)
+                    configHasData = true;
+            }
+            
             for (int slot = 1; slot <= 10; slot++)
             {
                 int toolInTable = FindToolInSlot(slot);
-                int toolInConfig = config.Slots[slot - 1].ToolNumber;
-
-                if (toolInTable != toolInConfig)
+                if (toolInTable > 0)
+                    tooltableHasData = true;
+            }
+            
+            PluginLogger.Log($"Config has data: {configHasData}, Tooltable has data: {tooltableHasData}");
+            
+            if (tooltableHasData)
+            {
+                PluginLogger.Log("Tooltable has home slot data - using as source of truth");
+                
+                for (int slot = 1; slot <= 10; slot++)
                 {
-                    anyMismatch = true;
-                    PluginLogger.Log($"MISMATCH Slot {slot}: Tooltable has T{toolInTable}, Config has T{toolInConfig}");
+                    int homeToolForSlot = FindToolInSlot(slot);
+                    int configTool = config.Slots[slot - 1].ToolNumber;
                     
-                    config.Slots[slot - 1].ToolNumber = toolInTable;
+                    bool isInRack = homeToolForSlot > 0 && homeToolForSlot != currentSpindleTool;
+                    int effectiveTool = isInRack ? homeToolForSlot : 0;
+                    
+                    if (configTool != effectiveTool)
+                    {
+                        PluginLogger.Log($"Slot {slot}: Config T{configTool} -> T{effectiveTool} " +
+                            $"(home=T{homeToolForSlot}, spindle=T{currentSpindleTool}, inRack={isInRack})");
+                        config.Slots[slot - 1].ToolNumber = effectiveTool;
+                    }
                 }
             }
-
-            if (anyMismatch)
+            else if (configHasData && !tooltableHasData)
             {
-                PluginLogger.Log("Reconciliation complete: Config updated to match tooltable (tooltable is source of truth)");
+                PluginLogger.Log("Config has data but tooltable is empty - writing config to tooltable");
+                
+                for (int slot = 1; slot <= 10; slot++)
+                {
+                    int configTool = config.Slots[slot - 1].ToolNumber;
+                    if (configTool > 0)
+                    {
+                        PluginLogger.Log($"Writing T{configTool} home slot = {slot} to tooltable");
+                        WriteToolSlot(configTool, slot);
+                        wroteSomethingToTooltable = true;
+                    }
+                }
+                
+                if (wroteSomethingToTooltable)
+                {
+                    SaveToolTable();
+                    PluginLogger.Log("Tooltable saved after writing config data");
+                }
             }
             else
             {
-                PluginLogger.Log("Reconciliation complete: No mismatches found");
+                PluginLogger.Log("Both empty or no action needed");
             }
+            
+            PluginLogger.Log("Reconciliation complete");
+        }
+        
+        public int GetCurrentSpindleTool()
+        {
+            try
+            {
+                return _uc.Getcurrenttool();
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+        
+        public bool IsToolInRack(int toolNumber, int currentSpindleTool)
+        {
+            if (toolNumber <= 0)
+                return false;
+            
+            int homeSlot = FindToolSlot(toolNumber);
+            return homeSlot > 0 && toolNumber != currentSpindleTool;
+        }
+        
+        public int GetToolHomeSlot(int toolNumber)
+        {
+            return FindToolSlot(toolNumber);
         }
     }
 }

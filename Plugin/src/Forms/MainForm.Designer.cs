@@ -163,6 +163,9 @@ namespace Plugins.Forms
             lblClickHint.ForeColor = System.Drawing.Color.Gray;
             this.tabToolRack.Controls.Add(lblClickHint);
 
+            this.slotToolTip = new System.Windows.Forms.ToolTip();
+            this.slotToolTip.SetToolTip(this.panelSlots, "Click a slot to assign a tool");
+
             for (int i = 0; i < 10; i++)
             {
                 var panel = new System.Windows.Forms.Panel();
@@ -171,12 +174,17 @@ namespace Plugins.Forms
                 panel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
                 panel.Cursor = System.Windows.Forms.Cursors.Hand;
                 panel.Click += new System.EventHandler(this.SlotPanel_Click);
+                panel.Tag = i;
+                this.slotToolTip.SetToolTip(panel, $"Click to assign tool to Slot {i + 1}");
                 
                 var lblSlot = new System.Windows.Forms.Label();
                 lblSlot.Text = $"Slot {i + 1}";
                 lblSlot.Location = new System.Drawing.Point(5, 5);
                 lblSlot.Size = new System.Drawing.Size(60, 20);
                 lblSlot.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold);
+                lblSlot.Cursor = System.Windows.Forms.Cursors.Hand;
+                lblSlot.Click += new System.EventHandler(this.SlotPanel_Click);
+                lblSlot.Tag = i;
                 panel.Controls.Add(lblSlot);
 
                 var ledEnabled = new System.Windows.Forms.Panel();
@@ -184,6 +192,9 @@ namespace Plugins.Forms
                 ledEnabled.Location = new System.Drawing.Point(110, 5);
                 ledEnabled.Size = new System.Drawing.Size(20, 20);
                 ledEnabled.BackColor = System.Drawing.Color.Gray;
+                ledEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
+                ledEnabled.Click += new System.EventHandler(this.SlotPanel_Click);
+                ledEnabled.Tag = i;
                 panel.Controls.Add(ledEnabled);
 
                 var lblTool = new System.Windows.Forms.Label();
@@ -193,6 +204,9 @@ namespace Plugins.Forms
                 lblTool.Size = new System.Drawing.Size(130, 45);
                 lblTool.Font = new System.Drawing.Font("Arial", 26F, System.Drawing.FontStyle.Bold);
                 lblTool.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+                lblTool.Cursor = System.Windows.Forms.Cursors.Hand;
+                lblTool.Click += new System.EventHandler(this.SlotPanel_Click);
+                lblTool.Tag = i;
                 panel.Controls.Add(lblTool);
 
                 var lblToolInfo = new System.Windows.Forms.Label();
@@ -203,12 +217,18 @@ namespace Plugins.Forms
                 lblToolInfo.Font = new System.Drawing.Font("Arial", 8F);
                 lblToolInfo.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
                 lblToolInfo.ForeColor = System.Drawing.Color.DarkBlue;
+                lblToolInfo.Cursor = System.Windows.Forms.Cursors.Hand;
+                lblToolInfo.Click += new System.EventHandler(this.SlotPanel_Click);
+                lblToolInfo.Tag = i;
                 panel.Controls.Add(lblToolInfo);
 
                 var lblSensor = new System.Windows.Forms.Label();
                 lblSensor.Text = "Sensor:";
                 lblSensor.Location = new System.Drawing.Point(5, 100);
                 lblSensor.Size = new System.Drawing.Size(50, 20);
+                lblSensor.Cursor = System.Windows.Forms.Cursors.Hand;
+                lblSensor.Click += new System.EventHandler(this.SlotPanel_Click);
+                lblSensor.Tag = i;
                 panel.Controls.Add(lblSensor);
 
                 var ledSensor = new System.Windows.Forms.Panel();
@@ -216,12 +236,18 @@ namespace Plugins.Forms
                 ledSensor.Location = new System.Drawing.Point(60, 98);
                 ledSensor.Size = new System.Drawing.Size(24, 24);
                 ledSensor.BackColor = System.Drawing.Color.Gray;
+                ledSensor.Cursor = System.Windows.Forms.Cursors.Hand;
+                ledSensor.Click += new System.EventHandler(this.SlotPanel_Click);
+                ledSensor.Tag = i;
                 panel.Controls.Add(ledSensor);
 
                 var lblActive = new System.Windows.Forms.Label();
                 lblActive.Text = "Active:";
                 lblActive.Location = new System.Drawing.Point(5, 130);
                 lblActive.Size = new System.Drawing.Size(50, 20);
+                lblActive.Cursor = System.Windows.Forms.Cursors.Hand;
+                lblActive.Click += new System.EventHandler(this.SlotPanel_Click);
+                lblActive.Tag = i;
                 panel.Controls.Add(lblActive);
 
                 var ledActive = new System.Windows.Forms.Panel();
@@ -229,6 +255,9 @@ namespace Plugins.Forms
                 ledActive.Location = new System.Drawing.Point(60, 128);
                 ledActive.Size = new System.Drawing.Size(24, 24);
                 ledActive.BackColor = System.Drawing.Color.DarkGray;
+                ledActive.Cursor = System.Windows.Forms.Cursors.Hand;
+                ledActive.Click += new System.EventHandler(this.SlotPanel_Click);
+                ledActive.Tag = i;
                 panel.Controls.Add(ledActive);
 
                 slotPanels[i] = panel;
@@ -457,5 +486,6 @@ namespace Plugins.Forms
         
         private System.Windows.Forms.Button btnRemoveToolFromSpindle;
         private System.Windows.Forms.Button btnEditTool;
+        private System.Windows.Forms.ToolTip slotToolTip;
     }
 }
