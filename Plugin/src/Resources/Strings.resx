@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="0" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  
+  <!-- Plugin Title -->
+  <data name="PluginName" xml:space="preserve">
+    <value>HTM ATC - Automatic Tool Changer</value>
+  </data>
+  <data name="PluginVersion" xml:space="preserve">
+    <value>1.0.0</value>
+  </data>
+  
+  <!-- Main Form Tabs -->
+  <data name="TabStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="TabToolRack" xml:space="preserve">
+    <value>Tool Rack</value>
+  </data>
+  <data name="TabSetup" xml:space="preserve">
+    <value>Setup</value>
+  </data>
+  <data name="TabDiagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
+  <data name="TabSimulation" xml:space="preserve">
+    <value>Simulation</value>
+  </data>
+  
+  <!-- Status Tab -->
+  <data name="CurrentTool" xml:space="preserve">
+    <value>Current Tool:</value>
+  </data>
+  <data name="NoToolLoaded" xml:space="preserve">
+    <value>No tool loaded</value>
+  </data>
+  <data name="SpindleEmpty" xml:space="preserve">
+    <value>Spindle Empty</value>
+  </data>
+  
+  <!-- Setup Wizard -->
+  <data name="WizardTitle" xml:space="preserve">
+    <value>HTM ATC Setup Wizard</value>
+  </data>
+  <data name="WizardWelcome" xml:space="preserve">
+    <value>Welcome to the HTM ATC Setup Wizard. This wizard will guide you through configuring your automatic tool changer.</value>
+  </data>
+  <data name="WizardImportOption" xml:space="preserve">
+    <value>Import existing settings from HTM_ATC profile</value>
+  </data>
+  <data name="WizardStartFresh" xml:space="preserve">
+    <value>Start with default values</value>
+  </data>
+  
+  <!-- Wizard Step: Rack Orientation -->
+  <data name="StepRackOrientation" xml:space="preserve">
+    <value>Tool Rack Orientation</value>
+  </data>
+  <data name="RackOrientationDesc" xml:space="preserve">
+    <value>Select the axis along which your tool rack is aligned. Most linear racks have tools arranged in a row along X or Y.</value>
+  </data>
+  <data name="RackAxisX" xml:space="preserve">
+    <value>X-axis (tools aligned along X)</value>
+  </data>
+  <data name="RackAxisY" xml:space="preserve">
+    <value>Y-axis (tools aligned along Y)</value>
+  </data>
+  
+  <!-- Wizard Step: Slot 1 Position -->
+  <data name="StepSlot1Position" xml:space="preserve">
+    <value>Slot 1 Position</value>
+  </data>
+  <data name="Slot1PositionDesc" xml:space="preserve">
+    <value>Position the spindle directly above the center of Slot 1. This is where the tool holder cone aligns with the fork.</value>
+  </data>
+  <data name="ReadCurrentPosition" xml:space="preserve">
+    <value>Read Current Position</value>
+  </data>
+  <data name="OpenJogPanel" xml:space="preserve">
+    <value>Open Jog Panel</value>
+  </data>
+  
+  <!-- Wizard Step: Slot Pitch -->
+  <data name="StepSlotPitch" xml:space="preserve">
+    <value>Slot Spacing (Pitch)</value>
+  </data>
+  <data name="SlotPitchDesc" xml:space="preserve">
+    <value>Enter the center-to-center distance between adjacent slots. You can measure this or jog to Slot 2 and let the wizard calculate it.</value>
+  </data>
+  <data name="CalculateFromSlot2" xml:space="preserve">
+    <value>Jog to Slot 2 and Calculate</value>
+  </data>
+  
+  <!-- Wizard Step: Z Heights -->
+  <data name="StepZHeights" xml:space="preserve">
+    <value>Z Axis Heights</value>
+  </data>
+  <data name="ZHeightsDesc" xml:space="preserve">
+    <value>Configure the Z heights for tool change operations. All values are in MACHINE coordinates (G53).</value>
+  </data>
+  <data name="ZSafeLabel" xml:space="preserve">
+    <value>Z Safe (clearance height):</value>
+  </data>
+  <data name="ZSafeDesc" xml:space="preserve">
+    <value>The highest Z position, used for safe travel. Spindle clears all obstacles including tools in rack.</value>
+  </data>
+  <data name="ZEmptyLabel" xml:space="preserve">
+    <value>Z Empty (empty spindle travel):</value>
+  </data>
+  <data name="ZEmptyDesc" xml:space="preserve">
+    <value>Z height for traveling with empty spindle. Can be lower than Z Safe since no tool is loaded.</value>
+  </data>
+  <data name="ZApproachLabel" xml:space="preserve">
+    <value>Y Approach (fork clearance):</value>
+  </data>
+  <data name="ZApproachDesc" xml:space="preserve">
+    <value>Secondary axis position when approaching/leaving the fork. Must clear the fork fingers.</value>
+  </data>
+  <data name="ZClampLabel" xml:space="preserve">
+    <value>Z Clamp (tool engage):</value>
+  </data>
+  <data name="ZClampDesc" xml:space="preserve">
+    <value>Z height where the tool is fully seated in the fork for clamping/releasing.</value>
+  </data>
+  <data name="ZCheckLabel" xml:space="preserve">
+    <value>Z Check (sensor verify):</value>
+  </data>
+  <data name="ZCheckDesc" xml:space="preserve">
+    <value>Z height for sensor verification. Leave same as Z Clamp if not used.</value>
+  </data>
+  <data name="SameAsZClamp" xml:space="preserve">
+    <value>Same as Z Clamp</value>
+  </data>
+  
+  <!-- Wizard Step: Drawbar -->
+  <data name="StepDrawbar" xml:space="preserve">
+    <value>Drawbar Pneumatic Valve</value>
+  </data>
+  <data name="DrawbarDesc" xml:space="preserve">
+    <value>Configure the output that controls the drawbar pneumatic valve. When activated, the drawbar opens to release the tool.</value>
+  </data>
+  <data name="OutputPort" xml:space="preserve">
+    <value>Port:</value>
+  </data>
+  <data name="OutputPin" xml:space="preserve">
+    <value>Pin:</value>
+  </data>
+  <data name="TestDrawbar" xml:space="preserve">
+    <value>Test Drawbar</value>
+  </data>
+  <data name="TestDrawbarWarning" xml:space="preserve">
+    <value>This will open the drawbar. Ensure no tool is in spindle or hold the tool!</value>
+  </data>
+  
+  <!-- Wizard Step: Air Blow -->
+  <data name="StepAirBlow" xml:space="preserve">
+    <value>Air Blow (Optional)</value>
+  </data>
+  <data name="AirBlowDesc" xml:space="preserve">
+    <value>Configure the air blow output for cleaning tool holders during changes. This is optional.</value>
+  </data>
+  <data name="EnableAirBlow" xml:space="preserve">
+    <value>Enable Air Blow</value>
+  </data>
+  <data name="TestAirBlow" xml:space="preserve">
+    <value>Test Air Blow</value>
+  </data>
+  
+  <!-- Wizard Step: Pressure Sensor -->
+  <data name="StepPressureSensor" xml:space="preserve">
+    <value>Air Pressure Sensor (Optional)</value>
+  </data>
+  <data name="PressureSensorDesc" xml:space="preserve">
+    <value>Configure an input to detect low air pressure. Tool changes will be blocked if pressure is low.</value>
+  </data>
+  <data name="EnablePressureSensor" xml:space="preserve">
+    <value>Enable Pressure Sensor</value>
+  </data>
+  <data name="PressureOK" xml:space="preserve">
+    <value>Pressure OK</value>
+  </data>
+  <data name="PressureLow" xml:space="preserve">
+    <value>LOW PRESSURE</value>
+  </data>
+  
+  <!-- Wizard Step: Slot Sensors -->
+  <data name="StepSlotSensors" xml:space="preserve">
+    <value>Slot Presence Sensors</value>
+  </data>
+  <data name="SlotSensorsDesc" xml:space="preserve">
+    <value>Configure inputs that detect whether each slot has a tool present. These sensors improve safety by verifying tool pickup/dropoff.</value>
+  </data>
+  <data name="EnableSlotSensors" xml:space="preserve">
+    <value>Enable Slot Sensors</value>
+  </data>
+  <data name="SlotSensorPort" xml:space="preserve">
+    <value>Sensor Port:</value>
+  </data>
+  <data name="SlotSensorPins" xml:space="preserve">
+    <value>Pin Mapping (Slot 1-10):</value>
+  </data>
+  
+  <!-- Wizard Step: Enable Slots -->
+  <data name="StepEnableSlots" xml:space="preserve">
+    <value>Active Slots</value>
+  </data>
+  <data name="EnableSlotsDesc" xml:space="preserve">
+    <value>Select which slots are physically present and usable in your rack.</value>
+  </data>
+  
+  <!-- Wizard Step: Feeds and Timing -->
+  <data name="StepFeedsAndTiming" xml:space="preserve">
+    <value>Speeds and Timing</value>
+  </data>
+  <data name="FeedsAndTimingDesc" xml:space="preserve">
+    <value>Configure motion speeds and timing delays.</value>
+  </data>
+  <data name="FeedRateLabel" xml:space="preserve">
+    <value>Tool Change Feed Rate (mm/min):</value>
+  </data>
+  <data name="OperationDelayLabel" xml:space="preserve">
+    <value>Operation Delay (ms):</value>
+  </data>
+  <data name="SensorWaitTimeLabel" xml:space="preserve">
+    <value>Sensor Wait Time (ms):</value>
+  </data>
+  
+  <!-- Wizard Step: TCP -->
+  <data name="StepTCP" xml:space="preserve">
+    <value>Manual Tool Change Position (TCP)</value>
+  </data>
+  <data name="TCPDesc" xml:space="preserve">
+    <value>Position where the machine moves for manual tool loading/unloading when a tool is not in the rack.</value>
+  </data>
+  
+  <!-- Wizard Step: Options -->
+  <data name="StepOptions" xml:space="preserve">
+    <value>Tool Change Options</value>
+  </data>
+  <data name="OptionsDesc" xml:space="preserve">
+    <value>Configure optional behaviors during tool changes.</value>
+  </data>
+  <data name="OptionApplyG43" xml:space="preserve">
+    <value>Apply G43 after tool change (automatic tool length compensation)</value>
+  </data>
+  <data name="OptionReturnToXY" xml:space="preserve">
+    <value>Return to original XY position after tool change</value>
+  </data>
+  <data name="OptionMeasureNonRH" xml:space="preserve">
+    <value>Automatically measure tools not marked as 'Reference Height'</value>
+  </data>
+  <data name="OptionShowATCPage" xml:space="preserve">
+    <value>Show ATC display page during tool change</value>
+  </data>
+  
+  <!-- Wizard Step: Summary -->
+  <data name="StepSummary" xml:space="preserve">
+    <value>Configuration Summary</value>
+  </data>
+  <data name="SummaryDesc" xml:space="preserve">
+    <value>Review your settings before saving.</value>
+  </data>
+  <data name="SaveAndClose" xml:space="preserve">
+    <value>Save &amp; Close</value>
+  </data>
+  <data name="SaveAndTest" xml:space="preserve">
+    <value>Save &amp; Test</value>
+  </data>
+  
+  <!-- Navigation -->
+  <data name="Back" xml:space="preserve">
+    <value>&lt; Back</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next &gt;</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Finish" xml:space="preserve">
+    <value>Finish</value>
+  </data>
+  <data name="ConfirmCancel" xml:space="preserve">
+    <value>Discard all changes?</value>
+  </data>
+  
+  <!-- Errors -->
+  <data name="ErrorNotHomed" xml:space="preserve">
+    <value>One or more axes are NOT REFERENCED</value>
+  </data>
+  <data name="ErrorNoPressure" xml:space="preserve">
+    <value>No Air Pressure</value>
+  </data>
+  <data name="ErrorSpindleNotStopped" xml:space="preserve">
+    <value>Spindle did not stop in time</value>
+  </data>
+  <data name="ErrorSlotMismatch" xml:space="preserve">
+    <value>Slot sensor state mismatch</value>
+  </data>
+  <data name="ErrorAborted" xml:space="preserve">
+    <value>Tool change aborted by user</value>
+  </data>
+  
+  <!-- Buttons -->
+  <data name="RunSetupWizard" xml:space="preserve">
+    <value>Run Setup Wizard</value>
+  </data>
+  <data name="ImportFromProfile" xml:space="preserve">
+    <value>Import from HTM_ATC Profile</value>
+  </data>
+  <data name="ExportSettings" xml:space="preserve">
+    <value>Export Settings</value>
+  </data>
+  <data name="GoToTCP" xml:space="preserve">
+    <value>Go to TCP</value>
+  </data>
+  
+</root>
