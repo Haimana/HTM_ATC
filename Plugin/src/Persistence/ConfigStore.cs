@@ -54,12 +54,15 @@ namespace Plugins.Persistence
 
                 try
                 {
+                    PluginLogger.Log($"Loading config from: {_configPath}");
                     string json = File.ReadAllText(_configPath, Encoding.UTF8);
                     _config = DeserializeConfig(json);
+                    PluginLogger.Log("Config loaded successfully");
                     return true;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    PluginLogger.LogException("ConfigStore.Load", ex);
                     _config = ATCConfig.CreateDefault();
                     return false;
                 }
@@ -82,9 +85,11 @@ namespace Plugins.Persistence
                     }
                     
                     File.WriteAllText(_configPath, json, Encoding.UTF8);
+                    PluginLogger.LogConfigSave();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    PluginLogger.LogException("ConfigStore.Save", ex);
                 }
             }
         }
@@ -137,6 +142,8 @@ namespace Plugins.Persistence
             sb.AppendLine($"    \"drawbar\": {{ \"port\": {config.IO.Drawbar.Port}, \"pin\": {config.IO.Drawbar.Pin} }},");
             sb.AppendLine($"    \"airBlow\": {{ \"enabled\": {B(config.IO.AirBlow.Enabled)}, \"port\": {config.IO.AirBlow.Port}, \"pin\": {config.IO.AirBlow.Pin} }},");
             sb.AppendLine($"    \"pressureSensor\": {{ \"enabled\": {B(config.IO.PressureSensor.Enabled)}, \"port\": {config.IO.PressureSensor.Port}, \"pin\": {config.IO.PressureSensor.Pin} }},");
+            sb.AppendLine($"    \"dustHood\": {{ \"enabled\": {B(config.IO.DustHood.Enabled)}, \"port\": {config.IO.DustHood.Port}, \"pin\": {config.IO.DustHood.Pin}, \"raiseBeforeTC\": {B(config.IO.DustHood.RaiseBeforeTC)}, \"lowerAfterTC\": {B(config.IO.DustHood.LowerAfterTC)} }},");
+            sb.AppendLine($"    \"spindleToolSensor\": {{ \"enabled\": {B(config.IO.SpindleToolSensor.Enabled)}, \"port\": {config.IO.SpindleToolSensor.Port}, \"pin\": {config.IO.SpindleToolSensor.Pin}, \"activeLow\": {B(config.IO.SpindleToolSensor.ActiveLow)} }},");
             sb.AppendLine("    \"slotSensors\": {");
             sb.AppendLine($"      \"enabled\": {B(config.IO.SlotSensors.Enabled)},");
             sb.AppendLine($"      \"port\": {config.IO.SlotSensors.Port},");
@@ -144,6 +151,27 @@ namespace Plugins.Persistence
             sb.Append(string.Join(", ", config.IO.SlotSensors.Pins));
             sb.AppendLine("]");
             sb.AppendLine("    }");
+            sb.AppendLine("  },");
+            
+            sb.AppendLine("  \"safety\": {");
+            sb.AppendLine($"    \"enabled\": {B(config.Safety.Enabled)},");
+            sb.AppendLine("    \"ossdInputs\": [");
+            for (int i = 0; i < config.Safety.OssdInputs.Count; i++)
+            {
+                var ossd = config.Safety.OssdInputs[i];
+                string comma = i < config.Safety.OssdInputs.Count - 1 ? "," : "";
+                sb.AppendLine($"      {{ \"name\": \"{ossd.Name}\", \"ledNumber\": {ossd.LedNumber}, \"activeLow\": {B(ossd.ActiveLow)}, \"enabled\": {B(ossd.Enabled)} }}{comma}");
+            }
+            sb.AppendLine("    ]");
+            sb.AppendLine("  },");
+            
+            sb.AppendLine("  \"probe\": {");
+            sb.AppendLine($"    \"useUCCNCSettings\": {B(config.Probe.UseUCCNCSettings)},");
+            sb.AppendLine($"    \"fastFeed\": {F(config.Probe.FastFeed)},");
+            sb.AppendLine($"    \"slowFeed\": {F(config.Probe.SlowFeed)},");
+            sb.AppendLine($"    \"retract\": {F(config.Probe.Retract)},");
+            sb.AppendLine($"    \"dualCycle\": {B(config.Probe.DualCycle)},");
+            sb.AppendLine($"    \"minZ\": {F(config.Probe.MinZ)}");
             sb.AppendLine("  },");
             
             sb.AppendLine("  \"slots\": [");
@@ -211,8 +239,28 @@ namespace Plugins.Persistence
             config.IO.PressureSensor.Port = ExtractInt(json, "\"pressureSensor\".*?\"port\":\\s*(\\d+)", 1, true);
             config.IO.PressureSensor.Pin = ExtractInt(json, "\"pressureSensor\".*?\"pin\":\\s*(\\d+)", 1, true);
             
+            config.IO.DustHood.Enabled = ExtractBool(json, "\"dustHood\".*?\"enabled\":\\s*(true|false)", false, true);
+            config.IO.DustHood.Port = ExtractInt(json, "\"dustHood\".*?\"port\":\\s*(\\d+)", 1, true);
+            config.IO.DustHood.Pin = ExtractInt(json, "\"dustHood\".*?\"pin\":\\s*(\\d+)", 1, true);
+            config.IO.DustHood.RaiseBeforeTC = ExtractBool(json, "\"dustHood\".*?\"raiseBeforeTC\":\\s*(true|false)", true, true);
+            config.IO.DustHood.LowerAfterTC = ExtractBool(json, "\"dustHood\".*?\"lowerAfterTC\":\\s*(true|false)", true, true);
+            
+            config.IO.SpindleToolSensor.Enabled = ExtractBool(json, "\"spindleToolSensor\".*?\"enabled\":\\s*(true|false)", false, true);
+            config.IO.SpindleToolSensor.Port = ExtractInt(json, "\"spindleToolSensor\".*?\"port\":\\s*(\\d+)", 1, true);
+            config.IO.SpindleToolSensor.Pin = ExtractInt(json, "\"spindleToolSensor\".*?\"pin\":\\s*(\\d+)", 1, true);
+            config.IO.SpindleToolSensor.ActiveLow = ExtractBool(json, "\"spindleToolSensor\".*?\"activeLow\":\\s*(true|false)", true, true);
+            
             config.IO.SlotSensors.Enabled = ExtractBool(json, "\"slotSensors\".*?\"enabled\":\\s*(true|false)", true, true);
             config.IO.SlotSensors.Port = ExtractInt(json, "\"slotSensors\".*?\"port\":\\s*(\\d+)", 5, true);
+            
+            config.Safety.Enabled = ExtractBool(json, "\"safety\".*?\"enabled\":\\s*(true|false)", true, true);
+            
+            config.Probe.UseUCCNCSettings = ExtractBool(json, "\"useUCCNCSettings\":\\s*(true|false)", true, true);
+            config.Probe.FastFeed = ExtractDouble(json, "\"fastFeed\":\\s*([\\d.-]+)", 500, true);
+            config.Probe.SlowFeed = ExtractDouble(json, "\"slowFeed\":\\s*([\\d.-]+)", 50, true);
+            config.Probe.Retract = ExtractDouble(json, "\"retract\":\\s*([\\d.-]+)", 2, true);
+            config.Probe.DualCycle = ExtractBool(json, "\"dualCycle\":\\s*(true|false)", true, true);
+            config.Probe.MinZ = ExtractDouble(json, "\"minZ\":\\s*([\\d.-]+)", -200, true);
             
             config.Options.ApplyG43 = ExtractBool(json, "\"applyG43\":\\s*(true|false)", true, true);
             config.Options.ReturnToXY = ExtractBool(json, "\"returnToXY\":\\s*(true|false)", true, true);

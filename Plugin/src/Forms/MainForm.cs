@@ -13,14 +13,15 @@ namespace Plugins.Forms
         private readonly ConfigStore _configStore;
         private readonly ATCStateMachine _stateMachine;
         private readonly SafetyMonitor _safetyMonitor;
-        private readonly UCCNCplugin _plugin;
         
-        private bool _mustClose;
-        private bool _isClosing;
+        private volatile bool _forceClose;
+        private volatile bool _isClosing;
+        private volatile bool _updatePending;
+        private readonly object _updateLock = new object();
+        private Timer _uiTimer;
 
         public MainForm(UCCNCplugin plugin, Plugininterface.Entry uc, ConfigStore configStore)
         {
-            _plugin = plugin;
             _uc = uc;
             _configStore = configStore;
             
@@ -37,6 +38,7 @@ namespace Plugins.Forms
 
             InitializeComponent();
             SetupUI();
+            SetupUITimer();
         }
 
         private void SetupUI()
@@ -45,22 +47,23 @@ namespace Plugins.Forms
             UpdateUIFromConfig();
         }
 
-        private void MainForm_Load(object sender, EventArgs e)
+        private void SetupUITimer()
         {
-            CheckForIllegalCrossThreadCalls = false;
-            
-            if (!_configStore.ConfigExists)
-            {
-                this.BeginInvoke(new Action(() =>
-                {
-                    ShowSetupWizard();
-                }));
-            }
+            _uiTimer = new Timer();
+            _uiTimer.Interval = 100;
+            _uiTimer.Tick += UITimer_Tick;
+            _uiTimer.Start();
         }
 
-        public void UpdateLoop()
+        private void UITimer_Tick(object sender, EventArgs e)
         {
             if (_isClosing) return;
+
+            lock (_updateLock)
+            {
+                if (!_updatePending) return;
+                _updatePending = false;
+            }
 
             try
             {
@@ -69,8 +72,33 @@ namespace Plugins.Forms
                 UpdateSlotDisplay();
                 UpdateDiagnosticsDisplay();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                PluginLogger.LogLoopException(ex);
+            }
+        }
+
+        public void RequestUIUpdate()
+        {
+            if (_isClosing) return;
+
+            lock (_updateLock)
+            {
+                _updatePending = true;
+            }
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            PluginLogger.Log("MainForm_Load");
+            
+            if (!_configStore.ConfigExists)
+            {
+                PluginLogger.Log("No config exists - will show wizard");
+                this.BeginInvoke(new Action(() =>
+                {
+                    ShowSetupWizard();
+                }));
             }
         }
 
@@ -182,29 +210,38 @@ namespace Plugins.Forms
         {
             try
             {
-                if (txtLog.InvokeRequired)
+                if (this.InvokeRequired)
                 {
-                    txtLog.BeginInvoke(new Action(() => LogMessage(message)));
+                    this.BeginInvoke(new Action(() => LogMessage(message)));
                     return;
                 }
 
                 string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
                 txtLog.AppendText($"[{timestamp}] {message}\r\n");
                 txtLog.ScrollToCaret();
+                
+                PluginLogger.Log($"[UI] {message}");
             }
             catch { }
         }
 
         private void ShowSetupWizard()
         {
+            PluginLogger.Log("ShowSetupWizard starting");
             using (var wizard = new SetupWizard(_configStore, _uc))
             {
                 if (wizard.ShowDialog(this) == DialogResult.OK)
                 {
+                    PluginLogger.LogWizardFinish();
                     UpdateUIFromConfig();
                     LogMessage("Configuration saved from setup wizard");
                 }
+                else
+                {
+                    PluginLogger.Log("Setup Wizard cancelled");
+                }
             }
+            PluginLogger.Log("ShowSetupWizard completed");
         }
 
         private void UpdateUIFromConfig()
@@ -423,25 +460,52 @@ namespace Plugins.Forms
             return error;
         }
 
-        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        public void ForceClose()
         {
-            if (!_mustClose)
+            _forceClose = true;
+            _isClosing = true;
+            
+            if (_uiTimer != null)
             {
-                e.Cancel = true;
-                _isClosing = true;
-                
-                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                _uiTimer.Stop();
+                _uiTimer.Dispose();
+                _uiTimer = null;
+            }
+            
+            try
+            {
+                if (!this.IsDisposed)
                 {
-                    _plugin.StopLoop();
-                    System.Threading.Thread.Sleep(100);
-                    _mustClose = true;
-                    
-                    try
+                    if (this.InvokeRequired)
                     {
                         this.BeginInvoke(new Action(() => this.Close()));
                     }
-                    catch { }
-                });
+                    else
+                    {
+                        this.Close();
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            PluginLogger.LogFormClose("MainForm");
+            _isClosing = true;
+            
+            if (_uiTimer != null)
+            {
+                _uiTimer.Stop();
+                _uiTimer.Dispose();
+                _uiTimer = null;
+            }
+            
+            if (!_forceClose && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                this.Hide();
+                return;
             }
         }
     }

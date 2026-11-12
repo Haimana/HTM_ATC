@@ -58,6 +58,31 @@ The plugin implements the standard UCCNC plugin interface:
 - `Informplugin_event()` - Receive M6.txt calls
 - `Buttonpress_event()` - Monitor button presses if needed
 
+### Threading Model
+
+**Critical:** UCCNC calls `Loop_event()` on its own thread (~25Hz), while the plugin UI
+runs on a separate WinForms UI thread. Direct cross-thread UI access can cause deadlocks.
+
+**Solution implemented:**
+1. `Loop_event()` sets a flag (`_updatePending`) and returns immediately
+2. A WinForms `Timer` on the UI thread polls this flag and performs UI updates
+3. All UI updates happen on the UI thread via the timer tick handler
+4. Guards prevent re-entry and detect closing state
+
+This avoids the hang that occurred in v1.0.0 when the wizard finished saving config
+while `Loop_event` was trying to access form controls.
+
+### File Logging
+
+The plugin logs key events to `{UCCNC_Path}/Profiles/HTM_ATC_{profile}.log`:
+- Plugin startup/shutdown
+- Wizard finish and config save
+- Form open/close
+- Loop exceptions
+- M6 tool change requests
+
+Log format: `[YYYY-MM-DD HH:mm:ss.fff] message`
+
 ---
 
 ## Configuration Model (ATCConfig)
@@ -102,8 +127,19 @@ The plugin implements the standard UCCNC plugin interface:
 | DrawbarPin | int | Output pin for drawbar | 20651 |
 | AirBlowPort | int | Output port for air blow | 20652 |
 | AirBlowPin | int | Output pin for air blow | 20653 |
+| AirBlowEnabled | bool | Enable air blow output | - |
 | PressureSensorPort | int | Input port for air pressure | 20654 |
 | PressureSensorPin | int | Input pin for air pressure | 20655 |
+| PressureSensorEnabled | bool | Enable pressure monitoring | - |
+| DustHoodPort | int | Output port for dust hood | - |
+| DustHoodPin | int | Output pin for dust hood | - |
+| DustHoodEnabled | bool | Enable dust hood control | - |
+| DustHoodRaiseBeforeTC | bool | Raise hood before tool change | - |
+| DustHoodLowerAfterTC | bool | Lower hood after tool change | - |
+| SpindleToolSensorPort | int | Input port for spindle tool sensor | - |
+| SpindleToolSensorPin | int | Input pin for spindle tool sensor | - |
+| SpindleToolSensorEnabled | bool | Enable spindle tool presence check | - |
+| SpindleToolSensorActiveLow | bool | Sensor is active low | - |
 
 ### Slot Sensors (Port 5, Pins 2-11 by default)
 | Field | Type | Description |
@@ -112,6 +148,36 @@ The plugin implements the standard UCCNC plugin interface:
 | SlotSensorPins | int[10] | Pin numbers for slots 1-10 |
 | SlotSensorsEnabled | bool | Enable slot sensor checking |
 
+### Safety Configuration (OSSD Inputs)
+| Field | Type | Description |
+|-------|------|-------------|
+| Safety.Enabled | bool | Enable safety monitoring |
+| Safety.OssdInputs[] | array | List of OSSD input configurations |
+| OssdInputs[n].Name | string | Descriptive name (e.g., "E-Stop") |
+| OssdInputs[n].LedNumber | int | UCCNC LED number to monitor |
+| OssdInputs[n].ActiveLow | bool | Fault when LED is ON (default: true) |
+| OssdInputs[n].Enabled | bool | Include in monitoring |
+
+Default OSSD inputs for UC300ETH-UB1:
+- LED 3: E-Stop
+- LED 4: X-Axis Driver
+- LED 5: Z-Axis Driver
+- LED 6: C-Axis Driver
+- LED 7: Power Supply
+
+### Tool Length Probe Settings
+| Field | Type | Description | UCCNC Field |
+|-------|------|-------------|-------------|
+| Probe.UseUCCNCSettings | bool | Read from UCCNC at probe time | - |
+| Probe.FastFeed | double | Fast probe feed (mm/min) | 2709 |
+| Probe.SlowFeed | double | Slow probe feed (mm/min) | 2710 |
+| Probe.Retract | double | Retract between touches (mm) | 2706 |
+| Probe.DualCycle | bool | Use fast-then-slow cycle | Button 853 |
+| Probe.MinZ | double | Minimum Z limit | 41 |
+
+When `UseUCCNCSettings` is true, probe values are read live from UCCNC fields at probe time.
+When false, the plugin's own saved values are used.
+
 ### Options
 | Field | Type | Description | HTM Field |
 |-------|------|-------------|-----------|
@@ -119,7 +185,7 @@ The plugin implements the standard UCCNC plugin interface:
 | ApplyG43 | bool | Apply G43 Hxx after tool change | 30005 |
 | ReturnToXY | bool | Return to original XY after TC | 30004 |
 | MeasureNonRH | bool | Measure non-reference-height tools | 30003 |
-| AirBlowEnabled | bool | Enable air blow during TC | 20203 |
+| AirBlowDuringTC | bool | Enable air blow during TC | 20203 |
 
 ### Per-Slot Configuration
 | Field | Type | Description |
@@ -401,7 +467,27 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 - Optionally imports existing HTM_ATC profile values
 - Provides live testing capabilities at relevant steps
 
-### Wizard Steps
+### Wizard Steps (17 total)
+
+1. Welcome & Import
+2. Rack Orientation
+3. Slot 1 Position (shows axis labels based on orientation, machine coordinates G53)
+4. Slot Spacing
+5. Z Heights
+6. Drawbar Output
+7. Air Blow (optional)
+8. Dust Hood (optional, NEW)
+9. Pressure Sensor (optional)
+10. Spindle Tool Sensor (optional, NEW)
+11. Slot Sensors
+12. Safety Inputs (OSSD configuration, NEW)
+13. Tool Length Probe (hybrid UCCNC/plugin settings, NEW)
+14. Enable Slots
+15. Speeds & Timing
+16. Options
+17. Summary
+
+---
 
 #### Step 1: Welcome & Import
 **Title:** "HTM ATC Setup Wizard"
@@ -542,7 +628,26 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ---
 
-#### Step 8: Air Pressure Sensor
+#### Step 8: Dust Hood (NEW)
+**Title:** "Dust Hood Control (Optional)"
+
+**Content:**
+- Explanation: "Configure an output to control a dust hood that can be raised/lowered during tool changes."
+- Enable checkbox
+- Port selector (1-5)
+- Pin selector (1-17)
+- Checkbox: "Raise dust hood before tool change"
+- Checkbox: "Lower dust hood after tool change"
+
+**Validation:**
+- If enabled: Port 1-5, Pin 1-17
+
+**Live Test:**
+- "Test Dust Hood" button to toggle
+
+---
+
+#### Step 9: Air Pressure Sensor
 **Title:** "Air Pressure Sensor (Optional)"
 
 **Content:**
@@ -561,7 +666,26 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ---
 
-#### Step 9: Slot Sensors
+#### Step 10: Spindle Tool Sensor (NEW)
+**Title:** "Spindle Tool Presence Sensor (Optional)"
+
+**Content:**
+- Explanation: "Configure an optional sensor to detect if a tool is present in the spindle. Used for verification during tool changes."
+- Enable checkbox
+- Port selector (1-5)
+- Pin selector (1-17)
+- Active level selector: "Active Low (sensor ON = tool present)"
+
+**Validation:**
+- If enabled: Port 1-5, Pin 1-17
+
+**Live Test:**
+- Live display showing current state
+- "Current state: TOOL PRESENT / NO TOOL"
+
+---
+
+#### Step 11: Slot Sensors
 **Title:** "Slot Presence Sensors"
 
 **Content:**
@@ -581,7 +705,49 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ---
 
-#### Step 10: Enable Slots
+#### Step 12: Safety Inputs (OSSD) (NEW)
+**Title:** "Safety Input Configuration"
+
+**Content:**
+- Explanation: "Configure OSSD (Output Signal Switching Device) safety inputs. These monitor critical safety signals and stop the machine if a fault is detected."
+- Master enable checkbox: "Enable Safety Monitoring"
+- Table with 5 configurable inputs:
+  - Enable checkbox
+  - Name field (e.g., "E-Stop", "X-Axis Driver")
+  - LED number (UCCNC LED to monitor)
+  - Active Low checkbox (fault when LED is ON)
+
+**Default values for UC300ETH-UB1:**
+- LED 3: E-Stop
+- LED 4: X-Axis Driver
+- LED 5: Z-Axis Driver
+- LED 6: C-Axis Driver
+- LED 7: Power Supply
+
+**Validation:**
+- At least one input should be enabled if safety is enabled
+
+---
+
+#### Step 13: Tool Length Probe (NEW)
+**Title:** "Tool Length Probe Settings"
+
+**Content:**
+- Explanation: "Configure tool length probing parameters. The plugin can use UCCNC's probe settings or its own values."
+- Checkbox: "Use UCCNC probe settings" (reads fields 2709, 2710, 2706, button 853, field 41 at probe time)
+- When unchecked, show editable fields:
+  - Fast feed (mm/min) - pre-filled from UCCNC field 2709
+  - Slow feed (mm/min) - pre-filled from UCCNC field 2710
+  - Retract distance (mm) - pre-filled from UCCNC field 2706
+  - Dual cycle checkbox - pre-filled from UCCNC button 853
+  - Min Z limit - pre-filled from UCCNC field 41
+
+**Validation:**
+- If manual: feed rates > 0, retract > 0
+
+---
+
+#### Step 14: Enable Slots
 **Title:** "Active Slots"
 
 **Content:**
@@ -594,7 +760,7 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ---
 
-#### Step 11: Feed Rates & Timing
+#### Step 15: Feed Rates & Timing
 **Title:** "Speeds and Timing"
 
 **Content:**
@@ -620,22 +786,7 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ---
 
-#### Step 12: Tool Change Position
-**Title:** "Manual Tool Change Position (TCP)"
-
-**Content:**
-- Explanation: "Position where the machine moves for manual tool loading/unloading when a tool is not in the rack."
-- X, Y, Z machine coordinate fields
-- "Jog to Position" button
-- "Read Current Position" button
-- Typically a position convenient for the operator
-
-**Validation:**
-- Values within machine limits
-
----
-
-#### Step 13: Options
+#### Step 16: Options
 **Title:** "Tool Change Options"
 
 **Content:**
@@ -655,9 +806,12 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 4. **Show ATC page during TC** (30006)
    - "Switch to ATC display page during tool change operations"
 
+5. **Air blow during tool change**
+   - "Use air blow during tool change operations"
+
 ---
 
-#### Step 14: Summary
+#### Step 17: Summary
 **Title:** "Configuration Summary"
 
 **Content:**

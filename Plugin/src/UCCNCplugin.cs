@@ -13,9 +13,13 @@ namespace Plugins
         public Plugininterface.Entry UC;
         private MainForm _mainForm;
         private ConfigStore _configStore;
+        private string _profileName;
         
         public bool LoopStop { get; private set; }
         public bool LoopWorking { get; private set; }
+        
+        private volatile bool _loopBusy;
+        private readonly object _loopLock = new object();
 
         public UCCNCplugin()
         {
@@ -25,61 +29,102 @@ namespace Plugins
         {
             this.UC = UC;
             
-            string uccncPath = Application.StartupPath;
-            string profileName = GetCurrentProfileName();
-            
-            _configStore = new ConfigStore(uccncPath, profileName);
-            _configStore.Load();
-            
-            _mainForm = new MainForm(this, UC, _configStore);
+            try
+            {
+                string uccncPath = Application.StartupPath;
+                _profileName = GetCurrentProfileName();
+                
+                string profilesFolder = Path.Combine(uccncPath, "Profiles");
+                PluginLogger.Initialize(profilesFolder, _profileName);
+                PluginLogger.Log($"Init_event: profile={_profileName}");
+                
+                _configStore = new ConfigStore(uccncPath, _profileName);
+                _configStore.Load();
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Init_event", ex);
+            }
         }
 
         public Plugininterface.Entry.Pluginproperties Getproperties_event(Plugininterface.Entry.Pluginproperties Properties)
         {
             Properties.author = "HTM_ATC Project";
             Properties.pluginname = "HTM_ATC";
-            Properties.pluginversion = "1.0.0";
+            Properties.pluginversion = "1.0.1";
             return Properties;
         }
 
         public void Configure_event()
         {
-            using (var wizard = new SetupWizard(_configStore, UC))
+            try
             {
-                wizard.ShowDialog(_mainForm);
+                EnsureMainForm();
+                using (var wizard = new SetupWizard(_configStore, UC))
+                {
+                    wizard.ShowDialog(_mainForm);
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Configure_event", ex);
             }
         }
 
         public void Startup_event()
         {
-            if (_mainForm == null || _mainForm.IsDisposed)
+            try
             {
-                _mainForm = new MainForm(this, UC, _configStore);
+                PluginLogger.Log("Startup_event");
+                EnsureMainForm();
+                _mainForm.Show();
             }
-            _mainForm.Show();
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Startup_event", ex);
+            }
         }
 
         public void Showup_event()
         {
+            try
+            {
+                PluginLogger.Log("Showup_event");
+                EnsureMainForm();
+                _mainForm.Show();
+                _mainForm.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Showup_event", ex);
+            }
+        }
+
+        private void EnsureMainForm()
+        {
             if (_mainForm == null || _mainForm.IsDisposed)
             {
                 _mainForm = new MainForm(this, UC, _configStore);
+                PluginLogger.LogFormOpen("MainForm");
             }
-            _mainForm.Show();
-            _mainForm.BringToFront();
         }
 
         public void Shutdown_event()
         {
             try
             {
+                PluginLogger.Log("Shutdown_event");
                 LoopStop = true;
                 if (_mainForm != null && !_mainForm.IsDisposed)
                 {
-                    _mainForm.Close();
+                    _mainForm.ForceClose();
+                    PluginLogger.LogFormClose("MainForm");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Shutdown_event", ex);
+            }
         }
 
         public void Loop_event()
@@ -87,48 +132,75 @@ namespace Plugins
             if (LoopStop)
                 return;
 
-            LoopWorking = true;
-
-            if (_mainForm == null || _mainForm.IsDisposed)
-            {
-                LoopWorking = false;
+            if (_loopBusy)
                 return;
+
+            lock (_loopLock)
+            {
+                if (_loopBusy)
+                    return;
+                _loopBusy = true;
             }
 
-            if (_firstRun)
-            {
-                _firstRun = false;
-            }
+            LoopWorking = true;
 
             try
             {
-                _mainForm.UpdateLoop();
-            }
-            catch { }
+                if (_mainForm == null || _mainForm.IsDisposed)
+                {
+                    LoopWorking = false;
+                    _loopBusy = false;
+                    return;
+                }
 
-            LoopWorking = false;
+                if (_firstRun)
+                {
+                    _firstRun = false;
+                    PluginLogger.Log("First Loop_event cycle");
+                }
+
+                _mainForm.RequestUIUpdate();
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.LogLoopException(ex);
+            }
+            finally
+            {
+                LoopWorking = false;
+                _loopBusy = false;
+            }
         }
 
         public object Informplugin_event(object Message)
         {
-            if (Message is string)
+            try
             {
-                string msg = Message as string;
-                
-                if (msg.StartsWith("M6:"))
+                if (Message is string)
                 {
-                    string toolStr = msg.Substring(3);
-                    if (int.TryParse(toolStr, out int newTool))
+                    string msg = Message as string;
+                    
+                    if (msg.StartsWith("M6:"))
                     {
-                        if (_mainForm != null && !_mainForm.IsDisposed)
+                        PluginLogger.Log($"Informplugin_event: {msg}");
+                        string toolStr = msg.Substring(3);
+                        if (int.TryParse(toolStr, out int newTool))
                         {
-                            string error = _mainForm.ExecuteToolChange(newTool);
-                            return error;
+                            if (_mainForm != null && !_mainForm.IsDisposed)
+                            {
+                                string error = _mainForm.ExecuteToolChange(newTool);
+                                return error;
+                            }
+                            return "Plugin form not available";
                         }
-                        return "Plugin form not available";
+                        return "Invalid tool number";
                     }
-                    return "Invalid tool number";
                 }
+            }
+            catch (Exception ex)
+            {
+                PluginLogger.LogException("Informplugin_event", ex);
+                return ex.Message;
             }
             
             return null;
@@ -165,9 +237,12 @@ namespace Plugins
         public void StopLoop()
         {
             LoopStop = true;
-            while (LoopWorking)
+            int timeout = 1000;
+            int elapsed = 0;
+            while (LoopWorking && elapsed < timeout)
             {
                 System.Threading.Thread.Sleep(10);
+                elapsed += 10;
             }
         }
 

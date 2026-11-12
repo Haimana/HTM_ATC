@@ -15,7 +15,7 @@ namespace Plugins.Forms
         private ATCConfig _tempConfig;
         
         private int _currentStep = 0;
-        private const int TotalSteps = 14;
+        private const int TotalSteps = 17;
 
         private readonly string[] StepTitles = new string[]
         {
@@ -26,11 +26,14 @@ namespace Plugins.Forms
             "Z Heights",
             "Drawbar Output",
             "Air Blow",
+            "Dust Hood",
             "Pressure Sensor",
+            "Spindle Tool Sensor",
             "Slot Sensors",
+            "Safety Inputs",
+            "Tool Length Probe",
             "Enable Slots",
             "Speeds & Timing",
-            "Tool Change Position",
             "Options",
             "Summary"
         };
@@ -42,8 +45,35 @@ namespace Plugins.Forms
             _tempConfig = CloneConfig(_configStore.Config);
             
             InitializeComponent();
+            PreFillFromUCCNC();
             SetupWizardUI();
             ShowStep(0);
+        }
+
+        private void PreFillFromUCCNC()
+        {
+            try
+            {
+                string fastFeedStr = _uc.Getfield(true, 2709);
+                if (double.TryParse(fastFeedStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double fastFeed))
+                    _tempConfig.Probe.FastFeed = fastFeed;
+                
+                string slowFeedStr = _uc.Getfield(true, 2710);
+                if (double.TryParse(slowFeedStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double slowFeed))
+                    _tempConfig.Probe.SlowFeed = slowFeed;
+                
+                string retractStr = _uc.Getfield(true, 2706);
+                if (double.TryParse(retractStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double retract))
+                    _tempConfig.Probe.Retract = retract;
+                
+                bool dualCycle = _uc.GetLED(853);
+                _tempConfig.Probe.DualCycle = dualCycle;
+                
+                string minZStr = _uc.Getfield(true, 41);
+                if (double.TryParse(minZStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double minZ))
+                    _tempConfig.Probe.MinZ = minZ;
+            }
+            catch { }
         }
 
         private void SetupWizardUI()
@@ -81,12 +111,41 @@ namespace Plugins.Forms
             clone.IO.AirBlow.Enabled = source.IO.AirBlow.Enabled;
             clone.IO.AirBlow.Port = source.IO.AirBlow.Port;
             clone.IO.AirBlow.Pin = source.IO.AirBlow.Pin;
+            clone.IO.DustHood.Enabled = source.IO.DustHood.Enabled;
+            clone.IO.DustHood.Port = source.IO.DustHood.Port;
+            clone.IO.DustHood.Pin = source.IO.DustHood.Pin;
+            clone.IO.DustHood.RaiseBeforeTC = source.IO.DustHood.RaiseBeforeTC;
+            clone.IO.DustHood.LowerAfterTC = source.IO.DustHood.LowerAfterTC;
             clone.IO.PressureSensor.Enabled = source.IO.PressureSensor.Enabled;
             clone.IO.PressureSensor.Port = source.IO.PressureSensor.Port;
             clone.IO.PressureSensor.Pin = source.IO.PressureSensor.Pin;
+            clone.IO.SpindleToolSensor.Enabled = source.IO.SpindleToolSensor.Enabled;
+            clone.IO.SpindleToolSensor.Port = source.IO.SpindleToolSensor.Port;
+            clone.IO.SpindleToolSensor.Pin = source.IO.SpindleToolSensor.Pin;
+            clone.IO.SpindleToolSensor.ActiveLow = source.IO.SpindleToolSensor.ActiveLow;
             clone.IO.SlotSensors.Enabled = source.IO.SlotSensors.Enabled;
             clone.IO.SlotSensors.Port = source.IO.SlotSensors.Port;
             Array.Copy(source.IO.SlotSensors.Pins, clone.IO.SlotSensors.Pins, 10);
+            
+            clone.Safety.Enabled = source.Safety.Enabled;
+            clone.Safety.OssdInputs.Clear();
+            foreach (var ossd in source.Safety.OssdInputs)
+            {
+                clone.Safety.OssdInputs.Add(new OssdInputConfig
+                {
+                    Name = ossd.Name,
+                    LedNumber = ossd.LedNumber,
+                    ActiveLow = ossd.ActiveLow,
+                    Enabled = ossd.Enabled
+                });
+            }
+            
+            clone.Probe.UseUCCNCSettings = source.Probe.UseUCCNCSettings;
+            clone.Probe.FastFeed = source.Probe.FastFeed;
+            clone.Probe.SlowFeed = source.Probe.SlowFeed;
+            clone.Probe.Retract = source.Probe.Retract;
+            clone.Probe.DualCycle = source.Probe.DualCycle;
+            clone.Probe.MinZ = source.Probe.MinZ;
             
             for (int i = 0; i < 10; i++)
             {
@@ -108,30 +167,63 @@ namespace Plugins.Forms
             _currentStep = step;
             UpdateStepIndicator();
             
-            panelWelcome.Visible = step == 0;
-            panelRackOrientation.Visible = step == 1;
-            panelSlot1Position.Visible = step == 2;
-            panelSlotPitch.Visible = step == 3;
-            panelZHeights.Visible = step == 4;
-            panelDrawbar.Visible = step == 5;
-            panelAirBlow.Visible = step == 6;
-            panelPressureSensor.Visible = step == 7;
-            panelSlotSensors.Visible = step == 8;
-            panelEnableSlots.Visible = step == 9;
-            panelFeedsAndTiming.Visible = step == 10;
-            panelTCP.Visible = step == 11;
-            panelOptions.Visible = step == 12;
-            panelSummary.Visible = step == 13;
+            HideAllPanels();
+            
+            switch (step)
+            {
+                case 0: panelWelcome.Visible = true; break;
+                case 1: panelRackOrientation.Visible = true; break;
+                case 2: panelSlot1Position.Visible = true; UpdateSlot1Labels(); break;
+                case 3: panelSlotPitch.Visible = true; break;
+                case 4: panelZHeights.Visible = true; break;
+                case 5: panelDrawbar.Visible = true; break;
+                case 6: panelAirBlow.Visible = true; break;
+                case 7: panelDustHood.Visible = true; break;
+                case 8: panelPressureSensor.Visible = true; break;
+                case 9: panelSpindleToolSensor.Visible = true; break;
+                case 10: panelSlotSensors.Visible = true; break;
+                case 11: panelSafety.Visible = true; break;
+                case 12: panelProbe.Visible = true; break;
+                case 13: panelEnableSlots.Visible = true; break;
+                case 14: panelFeedsAndTiming.Visible = true; break;
+                case 15: panelOptions.Visible = true; break;
+                case 16: panelSummary.Visible = true; UpdateSummary(); break;
+            }
             
             btnBack.Enabled = step > 0;
             btnNext.Text = step < TotalSteps - 1 ? "Next >" : "Finish";
             
-            if (step == 13)
-            {
-                UpdateSummary();
-            }
-            
             PopulateStepControls(step);
+        }
+
+        private void HideAllPanels()
+        {
+            panelWelcome.Visible = false;
+            panelRackOrientation.Visible = false;
+            panelSlot1Position.Visible = false;
+            panelSlotPitch.Visible = false;
+            panelZHeights.Visible = false;
+            panelDrawbar.Visible = false;
+            panelAirBlow.Visible = false;
+            panelDustHood.Visible = false;
+            panelPressureSensor.Visible = false;
+            panelSpindleToolSensor.Visible = false;
+            panelSlotSensors.Visible = false;
+            panelSafety.Visible = false;
+            panelProbe.Visible = false;
+            panelEnableSlots.Visible = false;
+            panelFeedsAndTiming.Visible = false;
+            panelOptions.Visible = false;
+            panelSummary.Visible = false;
+        }
+
+        private void UpdateSlot1Labels()
+        {
+            string rackAxis = _tempConfig.Rack.Axis;
+            string secondaryAxis = _tempConfig.Rack.AxisSecondary;
+            
+            lblSlot1XLabel.Text = $"{rackAxis} (along rack) - Machine coordinate (G53):";
+            lblSlot1YLabel.Text = $"{secondaryAxis} (secondary) - Machine coordinate (G53):";
         }
 
         private void UpdateStepIndicator()
@@ -179,12 +271,27 @@ namespace Plugins.Forms
                     break;
                     
                 case 7:
+                    chkDustHoodEnabled.Checked = _tempConfig.IO.DustHood.Enabled;
+                    nudDustHoodPort.Value = _tempConfig.IO.DustHood.Port;
+                    nudDustHoodPin.Value = _tempConfig.IO.DustHood.Pin;
+                    chkDustHoodRaise.Checked = _tempConfig.IO.DustHood.RaiseBeforeTC;
+                    chkDustHoodLower.Checked = _tempConfig.IO.DustHood.LowerAfterTC;
+                    break;
+                    
+                case 8:
                     chkPressureEnabled.Checked = _tempConfig.IO.PressureSensor.Enabled;
                     nudPressurePort.Value = _tempConfig.IO.PressureSensor.Port;
                     nudPressurePin.Value = _tempConfig.IO.PressureSensor.Pin;
                     break;
                     
-                case 8:
+                case 9:
+                    chkSpindleToolSensorEnabled.Checked = _tempConfig.IO.SpindleToolSensor.Enabled;
+                    nudSpindleToolSensorPort.Value = _tempConfig.IO.SpindleToolSensor.Port;
+                    nudSpindleToolSensorPin.Value = _tempConfig.IO.SpindleToolSensor.Pin;
+                    chkSpindleToolSensorActiveLow.Checked = _tempConfig.IO.SpindleToolSensor.ActiveLow;
+                    break;
+                    
+                case 10:
                     chkSlotSensorsEnabled.Checked = _tempConfig.IO.SlotSensors.Enabled;
                     nudSlotSensorPort.Value = _tempConfig.IO.SlotSensors.Port;
                     for (int i = 0; i < 10; i++)
@@ -193,26 +300,35 @@ namespace Plugins.Forms
                     }
                     break;
                     
-                case 9:
+                case 11:
+                    chkSafetyEnabled.Checked = _tempConfig.Safety.Enabled;
+                    PopulateSafetyInputs();
+                    break;
+                    
+                case 12:
+                    chkUseUCCNCProbe.Checked = _tempConfig.Probe.UseUCCNCSettings;
+                    txtProbeFastFeed.Text = F(_tempConfig.Probe.FastFeed);
+                    txtProbeSlowFeed.Text = F(_tempConfig.Probe.SlowFeed);
+                    txtProbeRetract.Text = F(_tempConfig.Probe.Retract);
+                    chkProbeDualCycle.Checked = _tempConfig.Probe.DualCycle;
+                    txtProbeMinZ.Text = F(_tempConfig.Probe.MinZ);
+                    UpdateProbeFieldsEnabled();
+                    break;
+                    
+                case 13:
                     for (int i = 0; i < 10; i++)
                     {
                         chkSlotEnabled[i].Checked = _tempConfig.Slots[i].Enabled;
                     }
                     break;
                     
-                case 10:
+                case 14:
                     txtFeedRate.Text = F(_tempConfig.FeedsAndTiming.FeedRate);
                     txtOperationDelay.Text = _tempConfig.FeedsAndTiming.OperationDelay.ToString();
                     txtSensorWaitTime.Text = _tempConfig.FeedsAndTiming.SensorWaitTime.ToString();
                     break;
                     
-                case 11:
-                    txtTcpX.Text = F(_tempConfig.TCP.X);
-                    txtTcpY.Text = F(_tempConfig.TCP.Y);
-                    txtTcpZ.Text = F(_tempConfig.TCP.Z);
-                    break;
-                    
-                case 12:
+                case 15:
                     chkApplyG43.Checked = _tempConfig.Options.ApplyG43;
                     chkReturnToXY.Checked = _tempConfig.Options.ReturnToXY;
                     chkMeasureNonRH.Checked = _tempConfig.Options.MeasureNonRH;
@@ -222,6 +338,28 @@ namespace Plugins.Forms
             }
         }
 
+        private void PopulateSafetyInputs()
+        {
+            for (int i = 0; i < _tempConfig.Safety.OssdInputs.Count && i < 5; i++)
+            {
+                var ossd = _tempConfig.Safety.OssdInputs[i];
+                txtOssdName[i].Text = ossd.Name;
+                nudOssdLed[i].Value = ossd.LedNumber;
+                chkOssdActiveLow[i].Checked = ossd.ActiveLow;
+                chkOssdEnabled[i].Checked = ossd.Enabled;
+            }
+        }
+
+        private void UpdateProbeFieldsEnabled()
+        {
+            bool manualEnabled = !chkUseUCCNCProbe.Checked;
+            txtProbeFastFeed.Enabled = manualEnabled;
+            txtProbeSlowFeed.Enabled = manualEnabled;
+            txtProbeRetract.Enabled = manualEnabled;
+            chkProbeDualCycle.Enabled = manualEnabled;
+            txtProbeMinZ.Enabled = manualEnabled;
+        }
+
         private bool ValidateStep(int step)
         {
             switch (step)
@@ -229,12 +367,12 @@ namespace Plugins.Forms
                 case 2:
                     if (!TryParseDouble(txtSlot1X.Text, out _))
                     {
-                        ShowValidationError("Invalid Slot 1 X position");
+                        ShowValidationError($"Invalid {_tempConfig.Rack.Axis} position for Slot 1");
                         return false;
                     }
                     if (!TryParseDouble(txtSlot1Y.Text, out _))
                     {
-                        ShowValidationError("Invalid Slot 1 Y position");
+                        ShowValidationError($"Invalid {_tempConfig.Rack.AxisSecondary} position for Slot 1");
                         return false;
                     }
                     break;
@@ -258,7 +396,7 @@ namespace Plugins.Forms
                     }
                     break;
                     
-                case 9:
+                case 13:
                     bool anyEnabled = false;
                     for (int i = 0; i < 10; i++)
                     {
@@ -275,7 +413,7 @@ namespace Plugins.Forms
                     }
                     break;
                     
-                case 10:
+                case 14:
                     if (!TryParseDouble(txtFeedRate.Text, out double feedRate) || feedRate <= 0)
                     {
                         ShowValidationError("Feed rate must be a positive number");
@@ -342,12 +480,27 @@ namespace Plugins.Forms
                     break;
                     
                 case 7:
+                    _tempConfig.IO.DustHood.Enabled = chkDustHoodEnabled.Checked;
+                    _tempConfig.IO.DustHood.Port = (int)nudDustHoodPort.Value;
+                    _tempConfig.IO.DustHood.Pin = (int)nudDustHoodPin.Value;
+                    _tempConfig.IO.DustHood.RaiseBeforeTC = chkDustHoodRaise.Checked;
+                    _tempConfig.IO.DustHood.LowerAfterTC = chkDustHoodLower.Checked;
+                    break;
+                    
+                case 8:
                     _tempConfig.IO.PressureSensor.Enabled = chkPressureEnabled.Checked;
                     _tempConfig.IO.PressureSensor.Port = (int)nudPressurePort.Value;
                     _tempConfig.IO.PressureSensor.Pin = (int)nudPressurePin.Value;
                     break;
                     
-                case 8:
+                case 9:
+                    _tempConfig.IO.SpindleToolSensor.Enabled = chkSpindleToolSensorEnabled.Checked;
+                    _tempConfig.IO.SpindleToolSensor.Port = (int)nudSpindleToolSensorPort.Value;
+                    _tempConfig.IO.SpindleToolSensor.Pin = (int)nudSpindleToolSensorPin.Value;
+                    _tempConfig.IO.SpindleToolSensor.ActiveLow = chkSpindleToolSensorActiveLow.Checked;
+                    break;
+                    
+                case 10:
                     _tempConfig.IO.SlotSensors.Enabled = chkSlotSensorsEnabled.Checked;
                     _tempConfig.IO.SlotSensors.Port = (int)nudSlotSensorPort.Value;
                     for (int i = 0; i < 10; i++)
@@ -356,14 +509,38 @@ namespace Plugins.Forms
                     }
                     break;
                     
-                case 9:
+                case 11:
+                    _tempConfig.Safety.Enabled = chkSafetyEnabled.Checked;
+                    for (int i = 0; i < _tempConfig.Safety.OssdInputs.Count && i < 5; i++)
+                    {
+                        _tempConfig.Safety.OssdInputs[i].Name = txtOssdName[i].Text;
+                        _tempConfig.Safety.OssdInputs[i].LedNumber = (int)nudOssdLed[i].Value;
+                        _tempConfig.Safety.OssdInputs[i].ActiveLow = chkOssdActiveLow[i].Checked;
+                        _tempConfig.Safety.OssdInputs[i].Enabled = chkOssdEnabled[i].Checked;
+                    }
+                    break;
+                    
+                case 12:
+                    _tempConfig.Probe.UseUCCNCSettings = chkUseUCCNCProbe.Checked;
+                    TryParseDouble(txtProbeFastFeed.Text, out double fastFeed);
+                    TryParseDouble(txtProbeSlowFeed.Text, out double slowFeed);
+                    TryParseDouble(txtProbeRetract.Text, out double retract);
+                    TryParseDouble(txtProbeMinZ.Text, out double minZ);
+                    _tempConfig.Probe.FastFeed = fastFeed;
+                    _tempConfig.Probe.SlowFeed = slowFeed;
+                    _tempConfig.Probe.Retract = retract;
+                    _tempConfig.Probe.DualCycle = chkProbeDualCycle.Checked;
+                    _tempConfig.Probe.MinZ = minZ;
+                    break;
+                    
+                case 13:
                     for (int i = 0; i < 10; i++)
                     {
                         _tempConfig.Slots[i].Enabled = chkSlotEnabled[i].Checked;
                     }
                     break;
                     
-                case 10:
+                case 14:
                     TryParseDouble(txtFeedRate.Text, out double feedRate);
                     int.TryParse(txtOperationDelay.Text, out int delay);
                     int.TryParse(txtSensorWaitTime.Text, out int waitTime);
@@ -372,16 +549,7 @@ namespace Plugins.Forms
                     _tempConfig.FeedsAndTiming.SensorWaitTime = waitTime;
                     break;
                     
-                case 11:
-                    TryParseDouble(txtTcpX.Text, out double tcpX);
-                    TryParseDouble(txtTcpY.Text, out double tcpY);
-                    TryParseDouble(txtTcpZ.Text, out double tcpZ);
-                    _tempConfig.TCP.X = tcpX;
-                    _tempConfig.TCP.Y = tcpY;
-                    _tempConfig.TCP.Z = tcpZ;
-                    break;
-                    
-                case 12:
+                case 15:
                     _tempConfig.Options.ApplyG43 = chkApplyG43.Checked;
                     _tempConfig.Options.ReturnToXY = chkReturnToXY.Checked;
                     _tempConfig.Options.MeasureNonRH = chkMeasureNonRH.Checked;
@@ -397,11 +565,11 @@ namespace Plugins.Forms
             
             sb.AppendLine("=== RACK CONFIGURATION ===");
             sb.AppendLine($"Rack Axis: {_tempConfig.Rack.Axis}");
-            sb.AppendLine($"Slot 1 Position: {_tempConfig.Rack.Axis}={F(_tempConfig.Rack.Slot1Position)}, {_tempConfig.Rack.AxisSecondary}={F(_tempConfig.Rack.Slot1PositionSecondary)}");
+            sb.AppendLine($"Slot 1: {_tempConfig.Rack.Axis}={F(_tempConfig.Rack.Slot1Position)}, {_tempConfig.Rack.AxisSecondary}={F(_tempConfig.Rack.Slot1PositionSecondary)} (G53)");
             sb.AppendLine($"Slot Pitch: {F(_tempConfig.Rack.Pitch)} mm");
             sb.AppendLine();
             
-            sb.AppendLine("=== Z HEIGHTS ===");
+            sb.AppendLine("=== Z HEIGHTS (G53) ===");
             sb.AppendLine($"Z Safe: {F(_tempConfig.Heights.ZSafe)}");
             sb.AppendLine($"Z Empty: {F(_tempConfig.Heights.ZEmpty)}");
             sb.AppendLine($"Z Approach: {F(_tempConfig.Heights.ZApproach)}");
@@ -412,8 +580,36 @@ namespace Plugins.Forms
             sb.AppendLine("=== I/O CONFIGURATION ===");
             sb.AppendLine($"Drawbar: Port {_tempConfig.IO.Drawbar.Port}, Pin {_tempConfig.IO.Drawbar.Pin}");
             sb.AppendLine($"Air Blow: {(_tempConfig.IO.AirBlow.Enabled ? $"Port {_tempConfig.IO.AirBlow.Port}, Pin {_tempConfig.IO.AirBlow.Pin}" : "Disabled")}");
+            sb.AppendLine($"Dust Hood: {(_tempConfig.IO.DustHood.Enabled ? $"Port {_tempConfig.IO.DustHood.Port}, Pin {_tempConfig.IO.DustHood.Pin} (Raise:{_tempConfig.IO.DustHood.RaiseBeforeTC}, Lower:{_tempConfig.IO.DustHood.LowerAfterTC})" : "Disabled")}");
             sb.AppendLine($"Pressure Sensor: {(_tempConfig.IO.PressureSensor.Enabled ? $"Port {_tempConfig.IO.PressureSensor.Port}, Pin {_tempConfig.IO.PressureSensor.Pin}" : "Disabled")}");
+            sb.AppendLine($"Spindle Tool Sensor: {(_tempConfig.IO.SpindleToolSensor.Enabled ? $"Port {_tempConfig.IO.SpindleToolSensor.Port}, Pin {_tempConfig.IO.SpindleToolSensor.Pin} ({(_tempConfig.IO.SpindleToolSensor.ActiveLow ? "Active Low" : "Active High")})" : "Disabled")}");
             sb.AppendLine($"Slot Sensors: {(_tempConfig.IO.SlotSensors.Enabled ? $"Port {_tempConfig.IO.SlotSensors.Port}" : "Disabled")}");
+            sb.AppendLine();
+            
+            sb.AppendLine("=== SAFETY INPUTS ===");
+            sb.AppendLine($"Safety Monitoring: {(_tempConfig.Safety.Enabled ? "Enabled" : "Disabled")}");
+            if (_tempConfig.Safety.Enabled)
+            {
+                foreach (var ossd in _tempConfig.Safety.OssdInputs)
+                {
+                    if (ossd.Enabled)
+                    {
+                        sb.AppendLine($"  {ossd.Name}: LED {ossd.LedNumber} ({(ossd.ActiveLow ? "Active Low" : "Active High")})");
+                    }
+                }
+            }
+            sb.AppendLine();
+            
+            sb.AppendLine("=== TOOL LENGTH PROBE ===");
+            sb.AppendLine($"Use UCCNC Settings: {(_tempConfig.Probe.UseUCCNCSettings ? "Yes" : "No")}");
+            if (!_tempConfig.Probe.UseUCCNCSettings)
+            {
+                sb.AppendLine($"  Fast Feed: {F(_tempConfig.Probe.FastFeed)} mm/min");
+                sb.AppendLine($"  Slow Feed: {F(_tempConfig.Probe.SlowFeed)} mm/min");
+                sb.AppendLine($"  Retract: {F(_tempConfig.Probe.Retract)} mm");
+                sb.AppendLine($"  Dual Cycle: {(_tempConfig.Probe.DualCycle ? "Yes" : "No")}");
+                sb.AppendLine($"  Min Z: {F(_tempConfig.Probe.MinZ)}");
+            }
             sb.AppendLine();
             
             sb.AppendLine("=== ENABLED SLOTS ===");
@@ -431,10 +627,6 @@ namespace Plugins.Forms
             sb.AppendLine($"Feed Rate: {F(_tempConfig.FeedsAndTiming.FeedRate)} mm/min");
             sb.AppendLine($"Operation Delay: {_tempConfig.FeedsAndTiming.OperationDelay} ms");
             sb.AppendLine($"Sensor Wait Time: {_tempConfig.FeedsAndTiming.SensorWaitTime} ms");
-            sb.AppendLine();
-            
-            sb.AppendLine("=== TOOL CHANGE POSITION ===");
-            sb.AppendLine($"TCP: X={F(_tempConfig.TCP.X)}, Y={F(_tempConfig.TCP.Y)}, Z={F(_tempConfig.TCP.Z)}");
             sb.AppendLine();
             
             sb.AppendLine("=== OPTIONS ===");
@@ -460,6 +652,7 @@ namespace Plugins.Forms
             }
             else
             {
+                PluginLogger.Log("Setup Wizard: Finishing and saving configuration");
                 SaveConfiguration();
                 DialogResult = DialogResult.OK;
                 Close();
@@ -516,12 +709,41 @@ namespace Plugins.Forms
                 c.IO.AirBlow.Enabled = _tempConfig.IO.AirBlow.Enabled;
                 c.IO.AirBlow.Port = _tempConfig.IO.AirBlow.Port;
                 c.IO.AirBlow.Pin = _tempConfig.IO.AirBlow.Pin;
+                c.IO.DustHood.Enabled = _tempConfig.IO.DustHood.Enabled;
+                c.IO.DustHood.Port = _tempConfig.IO.DustHood.Port;
+                c.IO.DustHood.Pin = _tempConfig.IO.DustHood.Pin;
+                c.IO.DustHood.RaiseBeforeTC = _tempConfig.IO.DustHood.RaiseBeforeTC;
+                c.IO.DustHood.LowerAfterTC = _tempConfig.IO.DustHood.LowerAfterTC;
                 c.IO.PressureSensor.Enabled = _tempConfig.IO.PressureSensor.Enabled;
                 c.IO.PressureSensor.Port = _tempConfig.IO.PressureSensor.Port;
                 c.IO.PressureSensor.Pin = _tempConfig.IO.PressureSensor.Pin;
+                c.IO.SpindleToolSensor.Enabled = _tempConfig.IO.SpindleToolSensor.Enabled;
+                c.IO.SpindleToolSensor.Port = _tempConfig.IO.SpindleToolSensor.Port;
+                c.IO.SpindleToolSensor.Pin = _tempConfig.IO.SpindleToolSensor.Pin;
+                c.IO.SpindleToolSensor.ActiveLow = _tempConfig.IO.SpindleToolSensor.ActiveLow;
                 c.IO.SlotSensors.Enabled = _tempConfig.IO.SlotSensors.Enabled;
                 c.IO.SlotSensors.Port = _tempConfig.IO.SlotSensors.Port;
                 Array.Copy(_tempConfig.IO.SlotSensors.Pins, c.IO.SlotSensors.Pins, 10);
+                
+                c.Safety.Enabled = _tempConfig.Safety.Enabled;
+                c.Safety.OssdInputs.Clear();
+                foreach (var ossd in _tempConfig.Safety.OssdInputs)
+                {
+                    c.Safety.OssdInputs.Add(new OssdInputConfig
+                    {
+                        Name = ossd.Name,
+                        LedNumber = ossd.LedNumber,
+                        ActiveLow = ossd.ActiveLow,
+                        Enabled = ossd.Enabled
+                    });
+                }
+                
+                c.Probe.UseUCCNCSettings = _tempConfig.Probe.UseUCCNCSettings;
+                c.Probe.FastFeed = _tempConfig.Probe.FastFeed;
+                c.Probe.SlowFeed = _tempConfig.Probe.SlowFeed;
+                c.Probe.Retract = _tempConfig.Probe.Retract;
+                c.Probe.DualCycle = _tempConfig.Probe.DualCycle;
+                c.Probe.MinZ = _tempConfig.Probe.MinZ;
                 
                 for (int i = 0; i < 10; i++)
                 {
@@ -598,32 +820,13 @@ namespace Plugins.Forms
                 
                 if (btn == btnReadZSafe) txtZSafe.Text = F(z);
                 else if (btn == btnReadZEmpty) txtZEmpty.Text = F(z);
-                else if (btn == btnReadZApproach)
-                {
-                    double y = _uc.GetYmachpos();
-                    txtZApproach.Text = F(_tempConfig.Rack.Axis == "X" ? y : _uc.GetXmachpos());
-                }
+                else if (btn == btnReadZApproach) txtZApproach.Text = F(z);
                 else if (btn == btnReadZClamp) txtZClamp.Text = F(z);
                 else if (btn == btnReadZCheck) txtZCheck.Text = F(z);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, $"Error reading position: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void btnReadTCP_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                txtTcpX.Text = F(_uc.GetXmachpos());
-                txtTcpY.Text = F(_uc.GetYmachpos());
-                txtTcpZ.Text = F(_uc.GetZmachpos());
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, $"Error reading position: {ex.Message}", "Error",
+                MessageBox.Show(this, $"Error reading Z position: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -667,6 +870,11 @@ namespace Plugins.Forms
                 MessageBox.Show(this, $"Error testing drawbar: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void chkUseUCCNCProbe_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateProbeFieldsEnabled();
         }
 
         private int GetLEDForPin(int port, int pin)

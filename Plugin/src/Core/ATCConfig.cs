@@ -6,7 +6,7 @@ namespace Plugins.Core
 {
     public class ATCConfig
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = 2;
         public DateTime LastModified { get; set; } = DateTime.UtcNow;
 
         public RackConfig Rack { get; set; } = new RackConfig();
@@ -14,6 +14,8 @@ namespace Plugins.Core
         public FeedsAndTimingConfig FeedsAndTiming { get; set; } = new FeedsAndTimingConfig();
         public TCPConfig TCP { get; set; } = new TCPConfig();
         public IOConfig IO { get; set; } = new IOConfig();
+        public SafetyConfig Safety { get; set; } = new SafetyConfig();
+        public ProbeConfig Probe { get; set; } = new ProbeConfig();
         public List<SlotConfig> Slots { get; set; } = new List<SlotConfig>();
         public OptionsConfig Options { get; set; } = new OptionsConfig();
         public SimulationConfig Simulation { get; set; } = new SimulationConfig();
@@ -71,7 +73,7 @@ namespace Plugins.Core
         {
             return new ATCConfig
             {
-                Version = 1,
+                Version = 2,
                 LastModified = DateTime.UtcNow,
                 Rack = new RackConfig
                 {
@@ -106,6 +108,8 @@ namespace Plugins.Core
                     Drawbar = new PinConfig { Port = 1, Pin = 14 },
                     AirBlow = new OptionalPinConfig { Enabled = true, Port = 1, Pin = 15 },
                     PressureSensor = new OptionalPinConfig { Enabled = true, Port = 1, Pin = 10 },
+                    DustHood = new DustHoodConfig { Enabled = false, Port = 1, Pin = 16, RaiseBeforeTC = true, LowerAfterTC = true },
+                    SpindleToolSensor = new ActiveLevelPinConfig { Enabled = false, Port = 1, Pin = 17, ActiveLow = true },
                     SlotSensors = new SlotSensorsConfig
                     {
                         Enabled = true,
@@ -113,6 +117,8 @@ namespace Plugins.Core
                         Pins = new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
                     }
                 },
+                Safety = SafetyConfig.CreateDefault(),
+                Probe = ProbeConfig.CreateDefault(),
                 Options = new OptionsConfig
                 {
                     ApplyG43 = true,
@@ -170,6 +176,8 @@ namespace Plugins.Core
         public PinConfig Drawbar { get; set; } = new PinConfig();
         public OptionalPinConfig AirBlow { get; set; } = new OptionalPinConfig();
         public OptionalPinConfig PressureSensor { get; set; } = new OptionalPinConfig();
+        public DustHoodConfig DustHood { get; set; } = new DustHoodConfig();
+        public ActiveLevelPinConfig SpindleToolSensor { get; set; } = new ActiveLevelPinConfig();
         public SlotSensorsConfig SlotSensors { get; set; } = new SlotSensorsConfig();
     }
 
@@ -182,6 +190,70 @@ namespace Plugins.Core
     public class OptionalPinConfig : PinConfig
     {
         public bool Enabled { get; set; }
+    }
+
+    public class ActiveLevelPinConfig : OptionalPinConfig
+    {
+        public bool ActiveLow { get; set; } = true;
+    }
+
+    public class DustHoodConfig : OptionalPinConfig
+    {
+        public bool RaiseBeforeTC { get; set; } = true;
+        public bool LowerAfterTC { get; set; } = true;
+    }
+
+    public class SafetyConfig
+    {
+        public bool Enabled { get; set; } = true;
+        public List<OssdInputConfig> OssdInputs { get; set; } = new List<OssdInputConfig>();
+
+        public static SafetyConfig CreateDefault()
+        {
+            return new SafetyConfig
+            {
+                Enabled = true,
+                OssdInputs = new List<OssdInputConfig>
+                {
+                    new OssdInputConfig { Name = "E-Stop", LedNumber = 3, ActiveLow = true, Enabled = true },
+                    new OssdInputConfig { Name = "X-Axis Driver", LedNumber = 4, ActiveLow = true, Enabled = true },
+                    new OssdInputConfig { Name = "Z-Axis Driver", LedNumber = 5, ActiveLow = true, Enabled = true },
+                    new OssdInputConfig { Name = "C-Axis Driver", LedNumber = 6, ActiveLow = true, Enabled = true },
+                    new OssdInputConfig { Name = "Power Supply", LedNumber = 7, ActiveLow = true, Enabled = true }
+                }
+            };
+        }
+    }
+
+    public class OssdInputConfig
+    {
+        public string Name { get; set; } = "";
+        public int LedNumber { get; set; }
+        public bool ActiveLow { get; set; } = true;
+        public bool Enabled { get; set; } = true;
+    }
+
+    public class ProbeConfig
+    {
+        public bool UseUCCNCSettings { get; set; } = true;
+        public double FastFeed { get; set; } = 500.0;
+        public double SlowFeed { get; set; } = 50.0;
+        public double Retract { get; set; } = 2.0;
+        public bool DualCycle { get; set; } = true;
+        public double MinZ { get; set; } = -200.0;
+
+        public static ProbeConfig CreateDefault()
+        {
+            return new ProbeConfig
+            {
+                UseUCCNCSettings = true,
+                FastFeed = 500.0,
+                SlowFeed = 50.0,
+                Retract = 2.0,
+                DualCycle = true,
+                MinZ = -200.0
+            };
+        }
     }
 
     public class SlotSensorsConfig

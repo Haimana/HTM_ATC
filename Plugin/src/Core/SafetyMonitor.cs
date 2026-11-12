@@ -18,31 +18,13 @@ namespace Plugins.Core
         private readonly Action<string> _log;
         private readonly Func<bool> _isSimulation;
 
-        private readonly Dictionary<int, bool> _previousOssdStates = new Dictionary<int, bool>();
+        private readonly Dictionary<string, bool> _previousOssdStates = new Dictionary<string, bool>();
         private bool _previousPressureState = true;
 
         public event Action<SafetyFault> OnFaultDetected;
         public event Action<SafetyFault> OnFaultCleared;
 
         public List<SafetyFault> ActiveFaults { get; } = new List<SafetyFault>();
-
-        private static readonly Dictionary<int, string> OssdMessages = new Dictionary<int, string>
-        {
-            { 3, "E-Stop Button Activated" },
-            { 4, "X-Axis Driver Fault" },
-            { 5, "Z-Axis Driver Fault" },
-            { 6, "C-Axis Driver Fault" },
-            { 7, "Power Supply Fault" }
-        };
-
-        private static readonly Dictionary<int, string> OssdClearMessages = new Dictionary<int, string>
-        {
-            { 3, "E-Stop Button De-Activated" },
-            { 4, "X-Axis Driver Online" },
-            { 5, "Z-Axis Driver Online" },
-            { 6, "C-Axis Driver Online" },
-            { 7, "Power Supply Restored" }
-        };
 
         public SafetyMonitor(ATCConfig config, Plugininterface.Entry uc, Action<string> log, Func<bool> isSimulation)
         {
@@ -51,14 +33,29 @@ namespace Plugins.Core
             _log = log ?? (s => { });
             _isSimulation = isSimulation ?? (() => false);
 
-            foreach (var ledNum in OssdMessages.Keys)
+            InitializeOssdStates();
+        }
+
+        private void InitializeOssdStates()
+        {
+            _previousOssdStates.Clear();
+            if (_config.Safety?.OssdInputs != null)
             {
-                _previousOssdStates[ledNum] = false;
+                foreach (var input in _config.Safety.OssdInputs)
+                {
+                    if (input.Enabled)
+                    {
+                        _previousOssdStates[input.Name] = false;
+                    }
+                }
             }
         }
 
         public void CheckSafety()
         {
+            if (!_config.Safety.Enabled)
+                return;
+
             if (_isSimulation())
             {
                 if (!_config.Simulation.OssdOK)
@@ -78,34 +75,37 @@ namespace Plugins.Core
 
         private void CheckOssdInputs()
         {
-            foreach (var kvp in OssdMessages)
+            if (_config.Safety?.OssdInputs == null)
+                return;
+
+            foreach (var input in _config.Safety.OssdInputs)
             {
-                int ledNum = kvp.Key;
-                bool currentState = GetLED(ledNum);
-                bool previousState = _previousOssdStates[ledNum];
+                if (!input.Enabled)
+                    continue;
 
-                if (currentState != previousState)
+                bool rawState = GetLED(input.LedNumber);
+                bool faultActive = input.ActiveLow ? rawState : !rawState;
+
+                string key = input.Name;
+                bool previousFault = false;
+                _previousOssdStates.TryGetValue(key, out previousFault);
+
+                if (faultActive != previousFault)
                 {
-                    _previousOssdStates[ledNum] = currentState;
+                    _previousOssdStates[key] = faultActive;
 
-                    if (currentState)
+                    string faultCode = $"OSSD_{input.LedNumber}";
+                    if (faultActive)
                     {
-                        string faultCode = $"OSSD_{ledNum}";
-                        string message = kvp.Value;
+                        string message = $"{input.Name} Fault";
                         ReportFault(faultCode, message);
-
                         _log($"SAFETY FAULT: {message}");
                         StopMachine();
                     }
                     else
                     {
-                        string faultCode = $"OSSD_{ledNum}";
                         ClearFault(faultCode);
-                        
-                        if (OssdClearMessages.TryGetValue(ledNum, out string clearMsg))
-                        {
-                            _log(clearMsg);
-                        }
+                        _log($"{input.Name} - OK");
                     }
                 }
             }
@@ -220,6 +220,19 @@ namespace Plugins.Core
         public bool AreAllAxesHomed()
         {
             return IsAxisHomed(0) && IsAxisHomed(1) && IsAxisHomed(2);
+        }
+
+        public bool CheckSpindleToolPresent()
+        {
+            if (!_config.IO.SpindleToolSensor.Enabled)
+                return true;
+
+            if (_isSimulation())
+                return true;
+
+            int ledNum = GetLEDForPin(_config.IO.SpindleToolSensor.Port, _config.IO.SpindleToolSensor.Pin);
+            bool rawState = GetLED(ledNum);
+            return _config.IO.SpindleToolSensor.ActiveLow ? !rawState : rawState;
         }
     }
 }
