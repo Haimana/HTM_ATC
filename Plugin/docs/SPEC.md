@@ -60,17 +60,34 @@ The plugin implements the standard UCCNC plugin interface:
 
 ### Threading Model
 
-**Critical:** UCCNC calls `Loop_event()` on its own thread (~25Hz), while the plugin UI
-runs on a separate WinForms UI thread. Direct cross-thread UI access can cause deadlocks.
+**UCCNC Thread Architecture:**
+- **Main UI Thread:** Runs UCCNC's forms and processes Windows messages
+- **Loop Thread:** Calls `Loop_event()` at ~25Hz for polling
+- **Macro Thread:** Executes M-code macros (M6.txt calls `exec.Informplugin()`)
 
-**Solution implemented:**
-1. `Loop_event()` sets a flag (`_updatePending`) and returns immediately
-2. A WinForms `Timer` on the UI thread polls this flag and performs UI updates
-3. All UI updates happen on the UI thread via the timer tick handler
-4. Guards prevent re-entry and detect closing state
+**Critical Constraint:** When `M6.txt` calls `exec.Informplugin("HTM_ATC.dll", "M6:n")`,
+the macro thread blocks waiting for the return value. If the plugin marshals work to
+a UI thread that then calls `exec.Code()` (which needs the main thread), and the main
+thread is waiting for the macro → **DEADLOCK**.
 
-This avoids the hang that occurred in v1.0.0 when the wizard finished saving config
-while `Loop_event` was trying to access form controls.
+**Solution implemented (v1.0.2):**
+
+1. **`Informplugin_event("M6:n")`** runs the tool-change state machine **synchronously
+   on the calling (macro) thread**. It NEVER marshals to the form thread.
+
+2. **`Loop_event()`** only sets a flag and returns immediately (no blocking calls).
+
+3. **UI updates** happen via a WinForms `Timer` on the UI thread (100ms interval).
+   The timer reads a thread-safe `ToolChangeSnapshot` from the state machine.
+
+4. **Test Cycle button** runs the state machine on a `BackgroundWorker` thread,
+   not the UI thread.
+
+5. **Logging** uses static `PluginLogger` class (thread-safe, no marshaling).
+   All log entries include thread ID: `[HH:mm:ss.fff] [T{id}] message`
+
+6. **Demo/Simulation mode** skips `exec.Stop()` calls and safety faults to allow
+   testing without real hardware.
 
 ### File Logging
 
@@ -102,9 +119,19 @@ Log format: `[YYYY-MM-DD HH:mm:ss.fff] message`
 |-------|------|-------------|-----------|
 | ZSafe | double | Safe Z for travel (above everything) | 30015 |
 | ZEmpty | double | Z for empty spindle travel | 30016 |
+| ZApproach | double | Z height when approaching/leaving fork (lower than ZEmpty) | 30014 |
 | ZClamp | double | Z for tool engage (in fork) | 30012 |
 | ZCheck | double | Z for sensor verification | 30023 |
-| ZApproach | double | Y position before entering fork | 30014 |
+
+### Secondary Axis Geometry
+| Field | Type | Description |
+|-------|------|-------------|
+| Slot1PositionSecondary | double | Machine coord on secondary axis when INSIDE fork |
+| ForkApproachPosition | double | Machine coord on secondary axis OUTSIDE fork (approach) |
+
+**Note:** For a rack along X-axis, the secondary axis is Y. `ForkApproachPosition` is the Y
+coordinate where the spindle is aligned with the slot but OUTSIDE the fork fingers.
+`Slot1PositionSecondary` is the Y coordinate when INSIDE the fork.
 
 ### Feed Rates
 | Field | Type | Description | HTM Field |
@@ -247,8 +274,16 @@ DETERMINE_SLOTS
   └─[currentTool==0]──> PICK_TOOL_MOVE_XY
 
 DROP_TOOL_MOVE_XY
-  │ - G00 G53 [RackAxis][slot position]
-  │ - G00 G53 [SecondaryAxis][ZApproach]
+  │ - G00 G53 [RackAxis][slot position] [SecondaryAxis][ForkApproachPosition]
+  │ - Spindle above slot on primary axis, but OUTSIDE fork on secondary axis
+  │ - while(exec.IsMoving()){}
+  │
+  ├─[Ismacrostopped]──> ABORT
+  └─[OK]──> DROP_LOWER_TO_APPROACH
+
+DROP_LOWER_TO_APPROACH
+  │ - G01 G53 Z[ZApproach] F[TCFeedRate]
+  │ - Lower to approach Z (just above fork level)
   │ - while(exec.IsMoving()){}
   │
   ├─[Ismacrostopped]──> ABORT
@@ -264,17 +299,19 @@ DROP_VERIFY_EMPTY
 DROP_AIRBLOW_ON
   │ - If airBlowEnabled: exec.Setoutpin(airPort, airPin)
   │
-  └─> DROP_LOWER_TO_CLAMP
+  └─> DROP_ENTER_FORK
 
-DROP_LOWER_TO_CLAMP
-  │ - G01 G53 Z[ZClamp] F[TCFeedRate]
+DROP_ENTER_FORK
+  │ - G01 G53 [SecondaryAxis][Slot1PositionSecondary] F[TCFeedRate]
+  │ - Move INTO the fork on secondary axis
   │ - while(exec.IsMoving()){}
   │
   ├─[Ismacrostopped]──> ABORT
-  └─[OK]──> DROP_ENTER_FORK
+  └─[OK]──> DROP_LOWER_TO_CLAMP
 
-DROP_ENTER_FORK
-  │ - G01 G53 [SecondaryAxis][SlotY] F[TCFeedRate]
+DROP_LOWER_TO_CLAMP
+  │ - G01 G53 Z[ZClamp] F[TCFeedRate]
+  │ - Lower to clamp Z (tool fully seated in fork)
   │ - while(exec.IsMoving()){}
   │
   ├─[Ismacrostopped]──> ABORT
@@ -316,12 +353,27 @@ DROP_CLOSE_DRAWBAR
   │ - exec.Setcurrenttool(0)
   │ - Persist state immediately
   │
+  └─> DROP_EXIT_FORK
+
+DROP_EXIT_FORK
+  │ - G01 G53 [SecondaryAxis][ForkApproachPosition] F[TCFeedRate]
+  │ - Exit the fork on secondary axis (move OUTSIDE)
+  │ - while(exec.IsMoving()){}
+  │
   └─> [newTool>0?] PICK_TOOL_MOVE_XY : COMPLETE
 
 PICK_TOOL_MOVE_XY
   │ - If newSlot==0: goto MANUAL_LOAD
-  │ - G00 G53 [RackAxis][newSlot position]
-  │ - G00 G53 [SecondaryAxis][SlotY]
+  │ - G00 G53 [RackAxis][newSlot position] [SecondaryAxis][ForkApproachPosition]
+  │ - Spindle above slot on primary axis, OUTSIDE fork on secondary axis
+  │ - while(exec.IsMoving()){}
+  │
+  ├─[Ismacrostopped]──> ABORT
+  └─[OK]──> PICK_LOWER_TO_APPROACH
+
+PICK_LOWER_TO_APPROACH
+  │ - G01 G53 Z[ZApproach] F[TCFeedRate]
+  │ - Lower to approach Z (just above fork level)
   │ - while(exec.IsMoving()){}
   │
   ├─[Ismacrostopped]──> ABORT
@@ -335,12 +387,21 @@ PICK_VERIFY_TOOL_PRESENT
 
 PICK_AIRBLOW_ON
   │ - If airBlowEnabled: exec.Setoutpin(airPort, airPin)
-  │ - exec.Setoutpin(drawbarPort, drawbarPin)  // Open before lowering
+  │ - exec.Setoutpin(drawbarPort, drawbarPin)  // Open drawbar BEFORE entering fork
   │
-  └─> PICK_LOWER_TO_CLAMP
+  └─> PICK_ENTER_FORK
+
+PICK_ENTER_FORK
+  │ - G01 G53 [SecondaryAxis][Slot1PositionSecondary] F[TCFeedRate]
+  │ - Move INTO the fork on secondary axis
+  │ - while(exec.IsMoving()){}
+  │
+  ├─[Ismacrostopped]──> ABORT
+  └─[OK]──> PICK_LOWER_TO_CLAMP
 
 PICK_LOWER_TO_CLAMP
   │ - G01 G53 Z[ZClamp] F[TCFeedRate]
+  │ - Lower to clamp Z (tool fully seated)
   │ - while(exec.IsMoving()){}
   │
   ├─[Ismacrostopped]──> ABORT
@@ -363,10 +424,18 @@ PICK_VERIFY_SLOT_EMPTY
   │ - CheckSlot(newSlot, expectedOccupied=false)
   │
   ├─[fail]──> FAULT
-  └─[OK]──> PICK_EXIT_FORK
+  └─[OK]──> PICK_RAISE_TO_EMPTY
+
+PICK_RAISE_TO_EMPTY
+  │ - G01 G53 Z[ZEmpty] F[TCFeedRate]
+  │ - Raise to empty spindle travel height
+  │ - while(exec.IsMoving()){}
+  │
+  └─> PICK_EXIT_FORK
 
 PICK_EXIT_FORK
-  │ - G01 G53 [SecondaryAxis][ZApproach] F[TCFeedRate]
+  │ - G01 G53 [SecondaryAxis][ForkApproachPosition] F[TCFeedRate]
+  │ - Exit the fork on secondary axis
   │ - while(exec.IsMoving()){}
   │
   └─> PICK_RAISE_TO_SAFE
