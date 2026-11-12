@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace Plugins.Core
 {
@@ -36,8 +37,9 @@ namespace Plugins.Core
             {
                 try
                 {
-                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                    string line = $"[{timestamp}] {message}{Environment.NewLine}";
+                    int threadId = Thread.CurrentThread.ManagedThreadId;
+                    string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+                    string line = $"[{timestamp}] [T{threadId}] {message}{Environment.NewLine}";
                     File.AppendAllText(_logPath, line, Encoding.UTF8);
                 }
                 catch
@@ -74,6 +76,11 @@ namespace Plugins.Core
         public static void LogLoopException(Exception ex)
         {
             Log($"Loop exception: {ex.GetType().Name}: {ex.Message}");
+        }
+
+        public static void LogToolChange(string message)
+        {
+            Log($"[TC] {message}");
         }
     }
 }

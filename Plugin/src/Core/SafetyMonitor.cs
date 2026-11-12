@@ -51,21 +51,28 @@ namespace Plugins.Core
             }
         }
 
+        private bool IsDemoMode()
+        {
+            try
+            {
+                return _uc.GetLED(218);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
         public void CheckSafety()
         {
             if (!_config.Safety.Enabled)
                 return;
 
-            if (_isSimulation())
+            bool simMode = _isSimulation();
+            bool demoMode = IsDemoMode();
+
+            if (simMode || demoMode)
             {
-                if (!_config.Simulation.OssdOK)
-                {
-                    ReportFault("SIM_OSSD", "Simulated OSSD fault");
-                }
-                if (_config.IO.PressureSensor.Enabled && !_config.Simulation.PressureOK)
-                {
-                    ReportFault("SIM_PRESSURE", "Simulated low air pressure");
-                }
                 return;
             }
 
@@ -172,6 +179,12 @@ namespace Plugins.Core
 
         private void StopMachine()
         {
+            if (_isSimulation() || IsDemoMode())
+            {
+                PluginLogger.Log("Demo/Simulation: exec.Stop() skipped for safety fault");
+                return;
+            }
+            
             try
             {
                 _uc.Stop();
@@ -212,7 +225,7 @@ namespace Plugins.Core
 
         public bool IsAxisHomed(int axis)
         {
-            if (_isSimulation()) return true;
+            if (_isSimulation() || IsDemoMode()) return true;
             int ledNum = 56 + axis;
             return GetLED(ledNum);
         }
@@ -227,7 +240,7 @@ namespace Plugins.Core
             if (!_config.IO.SpindleToolSensor.Enabled)
                 return true;
 
-            if (_isSimulation())
+            if (_isSimulation() || IsDemoMode())
                 return true;
 
             int ledNum = GetLEDForPin(_config.IO.SpindleToolSensor.Port, _config.IO.SpindleToolSensor.Pin);

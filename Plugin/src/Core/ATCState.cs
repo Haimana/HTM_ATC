@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Threading;
 
 namespace Plugins.Core
 {
@@ -11,20 +12,22 @@ namespace Plugins.Core
         SavePosition,
         MoveSafeZ,
         DetermineSlots,
-        DropToolMoveXY,
-        DropVerifyEmpty,
-        DropAirBlowOn,
-        DropLowerToClamp,
+        DropMoveToSlotXY,
+        DropLowerToApproach,
         DropEnterFork,
+        DropLowerToClamp,
         DropOpenDrawbar,
         DropRaiseToCheck,
         DropVerifyToolInSlot,
         DropAirBlowOff,
         DropRaiseToEmpty,
-        DropCloseDrawbar,
-        PickToolMoveXY,
+        DropExitFork,
+        PickMoveToSlotXY,
+        PickLowerToApproach,
+        PickEnterFork,
         PickVerifyToolPresent,
         PickAirBlowOn,
+        PickOpenDrawbar,
         PickLowerToClamp,
         PickCloseDrawbar,
         PickRaiseToCheck,
@@ -45,8 +48,8 @@ namespace Plugins.Core
     {
         private readonly ATCConfig _config;
         private readonly Plugininterface.Entry _uc;
-        private readonly Action<string> _log;
-        private readonly Func<bool> _isSimulation;
+        
+        private readonly object _stateLock = new object();
 
         public ToolChangeState CurrentState { get; private set; } = ToolChangeState.Idle;
         public int CurrentTool { get; private set; }
@@ -56,35 +59,65 @@ namespace Plugins.Core
         public double OriginalX { get; private set; }
         public double OriginalY { get; private set; }
         public double OriginalZ { get; private set; }
-        public int OriginalModalMode { get; private set; }
         public string LastError { get; private set; }
         public bool IsRunning => CurrentState != ToolChangeState.Idle;
+        
+        private volatile bool _stopRequested;
 
-        public ATCStateMachine(ATCConfig config, Plugininterface.Entry uc, Action<string> log, Func<bool> isSimulation)
+        public ATCStateMachine(ATCConfig config, Plugininterface.Entry uc)
         {
             _config = config;
             _uc = uc;
-            _log = log ?? (s => { });
-            _isSimulation = isSimulation ?? (() => false);
+        }
+
+        private void Log(string message)
+        {
+            PluginLogger.LogToolChange(message);
+        }
+
+        private bool IsSimulationMode()
+        {
+            return _config.Simulation.Enabled;
+        }
+
+        private bool IsDemoMode()
+        {
+            try
+            {
+                return _uc.GetLED(218);
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         public string StartToolChange(int newTool)
         {
-            if (IsRunning)
-                return "Tool change already in progress";
+            lock (_stateLock)
+            {
+                if (IsRunning)
+                    return "Tool change already in progress";
 
-            NewTool = newTool;
-            CurrentState = ToolChangeState.ValidateRequest;
-            LastError = null;
+                NewTool = newTool;
+                CurrentState = ToolChangeState.ValidateRequest;
+                LastError = null;
+                _stopRequested = false;
+            }
 
             return RunStateMachine();
         }
 
-        public string RunStateMachine()
+        private string RunStateMachine()
         {
             while (CurrentState != ToolChangeState.Idle)
             {
                 var previousState = CurrentState;
+                
+                if (CheckStopRequested())
+                {
+                    CurrentState = ToolChangeState.Abort;
+                }
                 
                 try
                 {
@@ -105,20 +138,17 @@ namespace Plugins.Core
                         case ToolChangeState.DetermineSlots:
                             ExecuteDetermineSlots();
                             break;
-                        case ToolChangeState.DropToolMoveXY:
-                            ExecuteDropToolMoveXY();
+                        case ToolChangeState.DropMoveToSlotXY:
+                            ExecuteDropMoveToSlotXY();
                             break;
-                        case ToolChangeState.DropVerifyEmpty:
-                            ExecuteDropVerifyEmpty();
-                            break;
-                        case ToolChangeState.DropAirBlowOn:
-                            ExecuteDropAirBlowOn();
-                            break;
-                        case ToolChangeState.DropLowerToClamp:
-                            ExecuteDropLowerToClamp();
+                        case ToolChangeState.DropLowerToApproach:
+                            ExecuteDropLowerToApproach();
                             break;
                         case ToolChangeState.DropEnterFork:
                             ExecuteDropEnterFork();
+                            break;
+                        case ToolChangeState.DropLowerToClamp:
+                            ExecuteDropLowerToClamp();
                             break;
                         case ToolChangeState.DropOpenDrawbar:
                             ExecuteDropOpenDrawbar();
@@ -135,17 +165,26 @@ namespace Plugins.Core
                         case ToolChangeState.DropRaiseToEmpty:
                             ExecuteDropRaiseToEmpty();
                             break;
-                        case ToolChangeState.DropCloseDrawbar:
-                            ExecuteDropCloseDrawbar();
+                        case ToolChangeState.DropExitFork:
+                            ExecuteDropExitFork();
                             break;
-                        case ToolChangeState.PickToolMoveXY:
-                            ExecutePickToolMoveXY();
+                        case ToolChangeState.PickMoveToSlotXY:
+                            ExecutePickMoveToSlotXY();
+                            break;
+                        case ToolChangeState.PickLowerToApproach:
+                            ExecutePickLowerToApproach();
+                            break;
+                        case ToolChangeState.PickEnterFork:
+                            ExecutePickEnterFork();
                             break;
                         case ToolChangeState.PickVerifyToolPresent:
                             ExecutePickVerifyToolPresent();
                             break;
                         case ToolChangeState.PickAirBlowOn:
                             ExecutePickAirBlowOn();
+                            break;
+                        case ToolChangeState.PickOpenDrawbar:
+                            ExecutePickOpenDrawbar();
                             break;
                         case ToolChangeState.PickLowerToClamp:
                             ExecutePickLowerToClamp();
@@ -177,6 +216,12 @@ namespace Plugins.Core
                         case ToolChangeState.Complete:
                             ExecuteComplete();
                             break;
+                        case ToolChangeState.ManualUnload:
+                            ExecuteManualUnload();
+                            break;
+                        case ToolChangeState.ManualLoad:
+                            ExecuteManualLoad();
+                            break;
                         case ToolChangeState.Abort:
                             ExecuteAbort();
                             break;
@@ -191,13 +236,8 @@ namespace Plugins.Core
                 catch (Exception ex)
                 {
                     LastError = ex.Message;
-                    _log($"State machine error in {previousState}: {ex.Message}");
+                    Log($"State machine error in {previousState}: {ex.Message}");
                     CurrentState = ToolChangeState.Fault;
-                }
-
-                if (CheckMacroStopped() && CurrentState != ToolChangeState.Abort && CurrentState != ToolChangeState.Fault)
-                {
-                    CurrentState = ToolChangeState.Abort;
                 }
             }
 
@@ -206,27 +246,41 @@ namespace Plugins.Core
 
         private void ExecuteValidateRequest()
         {
-            _log($"Validating tool change request: T{NewTool}");
+            Log($"Validating tool change request: T{NewTool}");
 
-            if (!CheckAxesHomed())
+            bool demoMode = IsDemoMode();
+            
+            if (!demoMode && !CheckAxesHomed())
             {
                 LastError = "One or more axes are NOT REFERENCED";
                 CurrentState = ToolChangeState.Fault;
                 return;
             }
-
-            if (_config.IO.PressureSensor.Enabled && !CheckAirPressure())
+            
+            if (demoMode)
             {
-                LastError = "No Air Pressure";
-                CurrentState = ToolChangeState.Fault;
-                return;
+                Log("Demo mode: skipping homing check");
+            }
+
+            if (_config.IO.PressureSensor.Enabled && !IsSimulationMode() && !demoMode)
+            {
+                if (!CheckAirPressure())
+                {
+                    LastError = "No Air Pressure";
+                    CurrentState = ToolChangeState.Fault;
+                    return;
+                }
+            }
+            else if (_config.IO.PressureSensor.Enabled)
+            {
+                Log("Demo/Simulation: skipping pressure check");
             }
 
             CurrentTool = GetCurrentTool();
 
             if (NewTool == CurrentTool)
             {
-                _log($"Requested tool T{NewTool} already loaded");
+                Log($"Requested tool T{NewTool} already loaded");
                 CurrentState = ToolChangeState.ApplyOffset;
                 return;
             }
@@ -236,30 +290,46 @@ namespace Plugins.Core
 
         private void ExecuteStopSpindle()
         {
-            _log("Stopping spindle...");
+            Log("Stopping spindle (M5, M9)");
             
             ExecuteGCode("M5");
             ExecuteGCode("M9");
 
-            int waitTimeMs = GetSpindleWaitTime() * 1000;
-            int elapsed = 0;
-            const int checkInterval = 100;
-
-            while (elapsed < waitTimeMs)
+            if (!IsSimulationMode())
             {
-                double spindleSpeed = GetActualSpindleSpeed();
-                if (spindleSpeed <= 0)
-                {
-                    _log("Spindle stopped");
-                    CurrentState = ToolChangeState.SavePosition;
-                    return;
-                }
-                Wait(checkInterval);
-                elapsed += checkInterval;
-            }
+                int waitTimeMs = GetSpindleWaitTime() * 1000;
+                int elapsed = 0;
+                const int checkInterval = 100;
 
-            LastError = "Spindle did not stop in time";
-            CurrentState = ToolChangeState.Fault;
+                while (elapsed < waitTimeMs)
+                {
+                    if (CheckStopRequested())
+                    {
+                        CurrentState = ToolChangeState.Abort;
+                        return;
+                    }
+                    
+                    double spindleSpeed = GetActualSpindleSpeed();
+                    if (spindleSpeed <= 0)
+                    {
+                        Log("Spindle stopped");
+                        break;
+                    }
+                    Thread.Sleep(checkInterval);
+                    elapsed += checkInterval;
+                }
+                
+                if (elapsed >= waitTimeMs)
+                {
+                    Log("Warning: Spindle stop timeout, continuing anyway");
+                }
+            }
+            else
+            {
+                Log("[SIM] Spindle stop simulated");
+            }
+            
+            CurrentState = ToolChangeState.SavePosition;
         }
 
         private void ExecuteSavePosition()
@@ -267,13 +337,13 @@ namespace Plugins.Core
             OriginalX = GetMachineX();
             OriginalY = GetMachineY();
             OriginalZ = GetMachineZ();
-            _log($"Saved position: X{F(OriginalX)} Y{F(OriginalY)} Z{F(OriginalZ)}");
+            Log($"Saved position: X{F(OriginalX)} Y{F(OriginalY)} Z{F(OriginalZ)}");
             CurrentState = ToolChangeState.MoveSafeZ;
         }
 
         private void ExecuteMoveSafeZ()
         {
-            _log($"Moving to safe Z: {F(_config.Heights.ZSafe)}");
+            Log($"Moving to safe Z: {F(_config.Heights.ZSafe)}");
             ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
@@ -291,25 +361,25 @@ namespace Plugins.Core
                 if (OldSlot == 0)
                 {
                     OldSlot = _config.FindFirstEmptySlot();
-                    _log($"Current tool T{CurrentTool} not in rack, will use empty slot {OldSlot}");
+                    Log($"Current tool T{CurrentTool} not in rack, will use empty slot {OldSlot}");
                 }
                 else
                 {
-                    _log($"Current tool T{CurrentTool} has slot {OldSlot}");
+                    Log($"Current tool T{CurrentTool} has slot {OldSlot}");
                 }
             }
 
             if (NewTool > 0)
             {
                 NewSlot = _config.FindToolSlot(NewTool);
-                _log(NewSlot > 0 
+                Log(NewSlot > 0 
                     ? $"New tool T{NewTool} found in slot {NewSlot}" 
                     : $"New tool T{NewTool} not in rack, manual load required");
             }
 
             if (CurrentTool > 0 && OldSlot > 0)
             {
-                CurrentState = ToolChangeState.DropToolMoveXY;
+                CurrentState = ToolChangeState.DropMoveToSlotXY;
             }
             else if (CurrentTool > 0 && OldSlot == 0)
             {
@@ -317,7 +387,7 @@ namespace Plugins.Core
             }
             else if (NewTool > 0)
             {
-                CurrentState = ToolChangeState.PickToolMoveXY;
+                CurrentState = ToolChangeState.PickMoveToSlotXY;
             }
             else
             {
@@ -325,62 +395,65 @@ namespace Plugins.Core
             }
         }
 
-        private void ExecuteDropToolMoveXY()
+        private void ExecuteDropMoveToSlotXY()
         {
-            string axis = _config.Rack.Axis;
+            string rackAxis = _config.Rack.Axis;
+            string secondaryAxis = _config.Rack.AxisSecondary;
             double slotPos = _config.GetSlotPosition(OldSlot);
+            double approachPos = _config.Rack.ForkApproachPosition;
             
-            _log($"Moving to drop position: {axis}{F(slotPos)}");
-            ExecuteGCode($"G00 G53 {axis}{F(slotPos)}");
+            Log($"Moving to slot {OldSlot}: {rackAxis}{F(slotPos)}, approach {secondaryAxis}{F(approachPos)}");
+            ExecuteGCode($"G00 G53 {rackAxis}{F(slotPos)} {secondaryAxis}{F(approachPos)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
 
-            string axis2 = _config.Rack.AxisSecondary;
-            _log($"Moving to approach: {axis2}{F(_config.Heights.ZApproach)}");
-            ExecuteGCode($"G00 G53 {axis2}{F(_config.Heights.ZApproach)}");
-            WaitForMotionComplete();
-            Wait(_config.FeedsAndTiming.OperationDelay);
-
-            CurrentState = ToolChangeState.DropVerifyEmpty;
+            CurrentState = ToolChangeState.DropLowerToApproach;
         }
 
-        private void ExecuteDropVerifyEmpty()
+        private void ExecuteDropLowerToApproach()
         {
-            if (!VerifySlotState(OldSlot, false))
+            Log($"Lowering to approach Z: {F(_config.Heights.ZApproach)}");
+            ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZApproach)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            if (_config.IO.SlotSensors.Enabled)
             {
-                LastError = $"Slot {OldSlot} should be empty but sensor reports occupied";
-                CurrentState = ToolChangeState.Fault;
-                return;
+                bool slotOccupied = CheckSlotSensor(OldSlot);
+                if (slotOccupied)
+                {
+                    LastError = $"Slot {OldSlot} should be empty but sensor reports occupied";
+                    CurrentState = ToolChangeState.Fault;
+                    return;
+                }
             }
-            CurrentState = ToolChangeState.DropAirBlowOn;
-        }
-
-        private void ExecuteDropAirBlowOn()
-        {
-            if (_config.IO.AirBlow.Enabled && _config.Options.AirBlowDuringTC)
-            {
-                _log("Air blow ON");
-                SetOutput(_config.IO.AirBlow.Port, _config.IO.AirBlow.Pin, true);
-            }
-            CurrentState = ToolChangeState.DropLowerToClamp;
-        }
-
-        private void ExecuteDropLowerToClamp()
-        {
-            _log($"Lowering to clamp Z: {F(_config.Heights.ZClamp)}");
-            ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZClamp)} F{F(_config.FeedsAndTiming.FeedRate)}");
-            WaitForMotionComplete();
-            Wait(_config.FeedsAndTiming.OperationDelay);
+            
             CurrentState = ToolChangeState.DropEnterFork;
         }
 
         private void ExecuteDropEnterFork()
         {
-            string axis2 = _config.Rack.AxisSecondary;
-            double forkY = _config.Rack.Slot1PositionSecondary;
+            if (_config.IO.AirBlow.Enabled && _config.Options.AirBlowDuringTC)
+            {
+                Log("Air blow ON");
+                SetOutput(_config.IO.AirBlow.Port, _config.IO.AirBlow.Pin, true);
+            }
             
-            _log($"Entering fork: {axis2}{F(forkY)}");
-            ExecuteGCode($"G01 G53 {axis2}{F(forkY)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            string secondaryAxis = _config.Rack.AxisSecondary;
+            double forkPos = _config.Rack.Slot1PositionSecondary;
+            
+            Log($"Entering fork: {secondaryAxis}{F(forkPos)}");
+            ExecuteGCode($"G01 G53 {secondaryAxis}{F(forkPos)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            CurrentState = ToolChangeState.DropLowerToClamp;
+        }
+
+        private void ExecuteDropLowerToClamp()
+        {
+            Log($"Lowering to clamp Z: {F(_config.Heights.ZClamp)}");
+            ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZClamp)} F{F(_config.FeedsAndTiming.FeedRate)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
             CurrentState = ToolChangeState.DropOpenDrawbar;
@@ -388,9 +461,19 @@ namespace Plugins.Core
 
         private void ExecuteDropOpenDrawbar()
         {
-            _log("Opening drawbar");
+            Log("Opening drawbar");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, true);
             Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            if (IsSimulationMode())
+            {
+                Log("[SIM] Marking slot as occupied (tool dropped)");
+                if (OldSlot >= 1 && OldSlot <= 10)
+                {
+                    _config.Simulation.SlotStates[OldSlot - 1] = true;
+                }
+            }
+            
             CurrentState = ToolChangeState.DropRaiseToCheck;
         }
 
@@ -398,7 +481,7 @@ namespace Plugins.Core
         {
             if (Math.Abs(_config.Heights.ZCheck - _config.Heights.ZClamp) > 0.001)
             {
-                _log($"Raising to check Z: {F(_config.Heights.ZCheck)}");
+                Log($"Raising to check Z: {F(_config.Heights.ZCheck)}");
                 ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZCheck)} F{F(_config.FeedsAndTiming.FeedRate)}");
                 WaitForMotionComplete();
                 Wait(_config.FeedsAndTiming.OperationDelay);
@@ -408,11 +491,16 @@ namespace Plugins.Core
 
         private void ExecuteDropVerifyToolInSlot()
         {
-            if (!VerifySlotState(OldSlot, true))
+            if (_config.IO.SlotSensors.Enabled)
             {
-                LastError = $"Slot {OldSlot} should have tool but sensor reports empty";
-                CurrentState = ToolChangeState.Fault;
-                return;
+                bool slotOccupied = VerifySlotStateWithRetry(OldSlot, true);
+                if (!slotOccupied)
+                {
+                    LastError = $"Slot {OldSlot} should have tool but sensor reports empty";
+                    CurrentState = ToolChangeState.Fault;
+                    return;
+                }
+                Log($"Slot {OldSlot} verified: tool present");
             }
             CurrentState = ToolChangeState.DropAirBlowOff;
         }
@@ -421,7 +509,7 @@ namespace Plugins.Core
         {
             if (_config.IO.AirBlow.Enabled && _config.Options.AirBlowDuringTC)
             {
-                _log("Air blow OFF");
+                Log("Air blow OFF");
                 SetOutput(_config.IO.AirBlow.Port, _config.IO.AirBlow.Pin, false);
             }
             CurrentState = ToolChangeState.DropRaiseToEmpty;
@@ -429,16 +517,12 @@ namespace Plugins.Core
 
         private void ExecuteDropRaiseToEmpty()
         {
-            _log($"Raising to empty Z: {F(_config.Heights.ZEmpty)}");
+            Log($"Raising to empty Z: {F(_config.Heights.ZEmpty)}");
             ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZEmpty)} F{F(_config.FeedsAndTiming.FeedRate)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
-            CurrentState = ToolChangeState.DropCloseDrawbar;
-        }
-
-        private void ExecuteDropCloseDrawbar()
-        {
-            _log("Closing drawbar");
+            
+            Log("Closing drawbar");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, false);
 
             var slot = _config.GetSlot(OldSlot);
@@ -448,13 +532,33 @@ namespace Plugins.Core
             }
             SetCurrentTool(0);
             
-            _log($"Tool T{CurrentTool} dropped in slot {OldSlot}");
+            Log($"Tool T{CurrentTool} dropped in slot {OldSlot}");
             CurrentTool = 0;
 
-            CurrentState = NewTool > 0 ? ToolChangeState.PickToolMoveXY : ToolChangeState.Complete;
+            CurrentState = ToolChangeState.DropExitFork;
         }
 
-        private void ExecutePickToolMoveXY()
+        private void ExecuteDropExitFork()
+        {
+            string secondaryAxis = _config.Rack.AxisSecondary;
+            double approachPos = _config.Rack.ForkApproachPosition;
+            
+            Log($"Exiting fork: {secondaryAxis}{F(approachPos)}");
+            ExecuteGCode($"G01 G53 {secondaryAxis}{F(approachPos)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            if (NewTool > 0)
+            {
+                CurrentState = ToolChangeState.PickMoveToSlotXY;
+            }
+            else
+            {
+                CurrentState = ToolChangeState.Complete;
+            }
+        }
+
+        private void ExecutePickMoveToSlotXY()
         {
             if (NewSlot == 0)
             {
@@ -462,23 +566,41 @@ namespace Plugins.Core
                 return;
             }
 
-            _log($"Raising to empty Z for pickup: {F(_config.Heights.ZEmpty)}");
-            ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZEmpty)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            Log($"Moving to safe Z for pickup: {F(_config.Heights.ZSafe)}");
+            ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
 
-            string axis = _config.Rack.Axis;
+            string rackAxis = _config.Rack.Axis;
+            string secondaryAxis = _config.Rack.AxisSecondary;
             double slotPos = _config.GetSlotPosition(NewSlot);
+            double approachPos = _config.Rack.ForkApproachPosition;
             
-            _log($"Moving to pick position: {axis}{F(slotPos)}");
-            ExecuteGCode($"G00 G53 {axis}{F(slotPos)}");
+            Log($"Moving to slot {NewSlot}: {rackAxis}{F(slotPos)}, approach {secondaryAxis}{F(approachPos)}");
+            ExecuteGCode($"G00 G53 {rackAxis}{F(slotPos)} {secondaryAxis}{F(approachPos)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
 
-            string axis2 = _config.Rack.AxisSecondary;
-            double forkY = _config.Rack.Slot1PositionSecondary;
-            _log($"Moving to slot: {axis2}{F(forkY)}");
-            ExecuteGCode($"G00 G53 {axis2}{F(forkY)}");
+            CurrentState = ToolChangeState.PickLowerToApproach;
+        }
+
+        private void ExecutePickLowerToApproach()
+        {
+            Log($"Lowering to approach Z: {F(_config.Heights.ZApproach)}");
+            ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZApproach)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            WaitForMotionComplete();
+            Wait(_config.FeedsAndTiming.OperationDelay);
+            
+            CurrentState = ToolChangeState.PickEnterFork;
+        }
+
+        private void ExecutePickEnterFork()
+        {
+            string secondaryAxis = _config.Rack.AxisSecondary;
+            double forkPos = _config.Rack.Slot1PositionSecondary;
+            
+            Log($"Entering fork: {secondaryAxis}{F(forkPos)}");
+            ExecuteGCode($"G01 G53 {secondaryAxis}{F(forkPos)} F{F(_config.FeedsAndTiming.FeedRate)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
 
@@ -487,11 +609,16 @@ namespace Plugins.Core
 
         private void ExecutePickVerifyToolPresent()
         {
-            if (!VerifySlotState(NewSlot, true))
+            if (_config.IO.SlotSensors.Enabled)
             {
-                LastError = $"Slot {NewSlot} should have tool T{NewTool} but sensor reports empty";
-                CurrentState = ToolChangeState.Fault;
-                return;
+                bool slotOccupied = VerifySlotStateWithRetry(NewSlot, true);
+                if (!slotOccupied)
+                {
+                    LastError = $"Slot {NewSlot} should have tool T{NewTool} but sensor reports empty";
+                    CurrentState = ToolChangeState.Fault;
+                    return;
+                }
+                Log($"Slot {NewSlot} verified: tool present");
             }
             CurrentState = ToolChangeState.PickAirBlowOn;
         }
@@ -500,19 +627,24 @@ namespace Plugins.Core
         {
             if (_config.IO.AirBlow.Enabled && _config.Options.AirBlowDuringTC)
             {
-                _log("Air blow ON");
+                Log("Air blow ON");
                 SetOutput(_config.IO.AirBlow.Port, _config.IO.AirBlow.Pin, true);
             }
-            
-            _log("Opening drawbar for pickup");
+            CurrentState = ToolChangeState.PickOpenDrawbar;
+        }
+
+        private void ExecutePickOpenDrawbar()
+        {
+            Log("Opening drawbar for pickup");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, true);
+            Wait(_config.FeedsAndTiming.OperationDelay);
             
             CurrentState = ToolChangeState.PickLowerToClamp;
         }
 
         private void ExecutePickLowerToClamp()
         {
-            _log($"Lowering to clamp Z: {F(_config.Heights.ZClamp)}");
+            Log($"Lowering to clamp Z: {F(_config.Heights.ZClamp)}");
             ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZClamp)} F{F(_config.FeedsAndTiming.FeedRate)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
@@ -521,12 +653,21 @@ namespace Plugins.Core
 
         private void ExecutePickCloseDrawbar()
         {
-            _log("Closing drawbar to grab tool");
+            Log("Closing drawbar to grab tool");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, false);
+            
+            if (IsSimulationMode())
+            {
+                Log("[SIM] Marking slot as empty (tool picked)");
+                if (NewSlot >= 1 && NewSlot <= 10)
+                {
+                    _config.Simulation.SlotStates[NewSlot - 1] = false;
+                }
+            }
             
             if (_config.IO.AirBlow.Enabled && _config.Options.AirBlowDuringTC)
             {
-                _log("Air blow OFF");
+                Log("Air blow OFF");
                 SetOutput(_config.IO.AirBlow.Port, _config.IO.AirBlow.Pin, false);
             }
             
@@ -538,7 +679,7 @@ namespace Plugins.Core
         {
             if (Math.Abs(_config.Heights.ZCheck - _config.Heights.ZClamp) > 0.001)
             {
-                _log($"Raising to check Z: {F(_config.Heights.ZCheck)}");
+                Log($"Raising to check Z: {F(_config.Heights.ZCheck)}");
                 ExecuteGCode($"G01 G53 Z{F(_config.Heights.ZCheck)} F{F(_config.FeedsAndTiming.FeedRate)}");
                 WaitForMotionComplete();
                 Wait(_config.FeedsAndTiming.OperationDelay);
@@ -548,20 +689,27 @@ namespace Plugins.Core
 
         private void ExecutePickVerifySlotEmpty()
         {
-            if (!VerifySlotState(NewSlot, false))
+            if (_config.IO.SlotSensors.Enabled)
             {
-                LastError = $"Slot {NewSlot} should be empty after pickup but sensor reports occupied";
-                CurrentState = ToolChangeState.Fault;
-                return;
+                bool slotEmpty = VerifySlotStateWithRetry(NewSlot, false);
+                if (!slotEmpty)
+                {
+                    LastError = $"Slot {NewSlot} should be empty after pickup but sensor reports occupied";
+                    CurrentState = ToolChangeState.Fault;
+                    return;
+                }
+                Log($"Slot {NewSlot} verified: empty");
             }
             CurrentState = ToolChangeState.PickExitFork;
         }
 
         private void ExecutePickExitFork()
         {
-            string axis2 = _config.Rack.AxisSecondary;
-            _log($"Exiting fork: {axis2}{F(_config.Heights.ZApproach)}");
-            ExecuteGCode($"G01 G53 {axis2}{F(_config.Heights.ZApproach)} F{F(_config.FeedsAndTiming.FeedRate)}");
+            string secondaryAxis = _config.Rack.AxisSecondary;
+            double approachPos = _config.Rack.ForkApproachPosition;
+            
+            Log($"Exiting fork: {secondaryAxis}{F(approachPos)}");
+            ExecuteGCode($"G01 G53 {secondaryAxis}{F(approachPos)} F{F(_config.FeedsAndTiming.FeedRate)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
             CurrentState = ToolChangeState.PickRaiseToSafe;
@@ -569,7 +717,7 @@ namespace Plugins.Core
 
         private void ExecutePickRaiseToSafe()
         {
-            _log($"Raising to safe Z: {F(_config.Heights.ZSafe)}");
+            Log($"Raising to safe Z: {F(_config.Heights.ZSafe)}");
             ExecuteGCode($"G00 G53 Z{F(_config.Heights.ZSafe)}");
             WaitForMotionComplete();
             Wait(_config.FeedsAndTiming.OperationDelay);
@@ -582,7 +730,7 @@ namespace Plugins.Core
             SetCurrentTool(NewTool);
             CurrentTool = NewTool;
             
-            _log($"Tool T{NewTool} picked from slot {NewSlot}");
+            Log($"Tool T{NewTool} picked from slot {NewSlot}");
             
             CurrentState = ToolChangeState.MeasureIfNeeded;
         }
@@ -596,12 +744,12 @@ namespace Plugins.Core
         {
             if (_config.Options.ApplyG43 && NewTool > 0)
             {
-                _log($"Applying tool offset: G43 H{NewTool}");
+                Log($"Applying tool offset: G43 H{NewTool}");
                 ExecuteGCode($"G43 H{NewTool}");
             }
             else
             {
-                _log("Canceling tool offset: G49");
+                Log("Canceling tool offset: G49");
                 ExecuteGCode("G49");
             }
             CurrentState = ToolChangeState.RestorePosition;
@@ -611,7 +759,7 @@ namespace Plugins.Core
         {
             if (_config.Options.ReturnToXY)
             {
-                _log($"Returning to original XY: X{F(OriginalX)} Y{F(OriginalY)}");
+                Log($"Returning to original XY: X{F(OriginalX)} Y{F(OriginalY)}");
                 ExecuteGCode($"G00 G53 X{F(OriginalX)} Y{F(OriginalY)}");
                 WaitForMotionComplete();
             }
@@ -620,34 +768,55 @@ namespace Plugins.Core
 
         private void ExecuteComplete()
         {
-            _log($"Tool change complete: T{NewTool}");
+            Log($"Tool change complete: T{NewTool}");
             CurrentState = ToolChangeState.Idle;
+        }
+
+        private void ExecuteManualUnload()
+        {
+            Log("Manual unload required - tool not in rack");
+            CurrentState = ToolChangeState.Fault;
+            LastError = "Manual unload not implemented";
+        }
+
+        private void ExecuteManualLoad()
+        {
+            Log("Manual load required - tool not in rack");
+            CurrentState = ToolChangeState.Fault;
+            LastError = "Manual load not implemented";
         }
 
         private void ExecuteAbort()
         {
-            _log("Tool change ABORTED by user");
+            Log("Tool change ABORTED by user");
             SafetyShutdown();
             CurrentState = ToolChangeState.Idle;
         }
 
         private void ExecuteFault()
         {
-            _log($"Tool change FAULT: {LastError}");
+            Log($"Tool change FAULT: {LastError}");
             SafetyShutdown();
             
-            try
+            if (!IsSimulationMode() && !IsDemoMode())
             {
-                _uc.Stop();
+                try
+                {
+                    _uc.Stop();
+                }
+                catch { }
             }
-            catch { }
+            else
+            {
+                Log("Demo/Simulation: exec.Stop() skipped");
+            }
             
             CurrentState = ToolChangeState.Idle;
         }
 
         private void SafetyShutdown()
         {
-            _log("Safety shutdown: closing outputs");
+            Log("Safety shutdown: closing outputs");
             SetOutput(_config.IO.Drawbar.Port, _config.IO.Drawbar.Pin, false);
             if (_config.IO.AirBlow.Enabled)
             {
@@ -655,32 +824,57 @@ namespace Plugins.Core
             }
         }
 
-        private bool VerifySlotState(int slotNumber, bool expectedOccupied)
+        private bool CheckSlotSensor(int slotNumber)
+        {
+            if (IsSimulationMode())
+            {
+                if (slotNumber >= 1 && slotNumber <= 10)
+                {
+                    return _config.Simulation.SlotStates[slotNumber - 1];
+                }
+                return false;
+            }
+            
+            int pin = _config.IO.SlotSensors.GetPinForSlot(slotNumber);
+            int ledNum = GetLEDForPin(_config.IO.SlotSensors.Port, pin);
+            bool sensorOn = GetLED(ledNum);
+            return !sensorOn;
+        }
+
+        private bool VerifySlotStateWithRetry(int slotNumber, bool expectedOccupied)
         {
             if (!_config.IO.SlotSensors.Enabled)
                 return true;
 
-            if (_isSimulation())
+            if (IsSimulationMode())
             {
-                bool simState = _config.Simulation.SlotStates[slotNumber - 1];
-                return simState == expectedOccupied;
+                if (slotNumber >= 1 && slotNumber <= 10)
+                {
+                    bool simState = _config.Simulation.SlotStates[slotNumber - 1];
+                    Log($"[SIM] Slot {slotNumber} state: {(simState ? "occupied" : "empty")}, expected: {(expectedOccupied ? "occupied" : "empty")}");
+                    return simState == expectedOccupied;
+                }
+                return true;
             }
 
             int pin = _config.IO.SlotSensors.GetPinForSlot(slotNumber);
             int ledNum = GetLEDForPin(_config.IO.SlotSensors.Port, pin);
             
             int elapsed = 0;
-            int debounceRequired = 1000;
+            int debounceRequired = 500;
             int debounceCount = 0;
             
             while (elapsed < _config.FeedsAndTiming.SensorWaitTime)
             {
-                bool sensorState = GetLED(ledNum);
-                bool slotOccupied = !sensorState;
+                if (CheckStopRequested())
+                    return false;
+                
+                bool sensorOn = GetLED(ledNum);
+                bool slotOccupied = !sensorOn;
                 
                 if (slotOccupied == expectedOccupied)
                 {
-                    debounceCount += 100;
+                    debounceCount += 50;
                     if (debounceCount >= debounceRequired)
                         return true;
                 }
@@ -689,8 +883,8 @@ namespace Plugins.Core
                     debounceCount = 0;
                 }
                 
-                Wait(100);
-                elapsed += 100;
+                Thread.Sleep(50);
+                elapsed += 50;
             }
             
             return false;
@@ -717,22 +911,31 @@ namespace Plugins.Core
 
         private bool CheckAxesHomed()
         {
-            if (_isSimulation()) return true;
             return GetLED(56) && GetLED(57) && GetLED(58);
         }
 
         private bool CheckAirPressure()
         {
-            if (_isSimulation()) return _config.Simulation.PressureOK;
             int ledNum = GetLEDForPin(_config.IO.PressureSensor.Port, _config.IO.PressureSensor.Pin);
             return !GetLED(ledNum);
         }
 
-        private bool CheckMacroStopped()
+        private bool CheckStopRequested()
         {
-            if (_isSimulation()) return false;
-            try { return _uc.Ismacrostopped(); }
-            catch { return false; }
+            if (_stopRequested)
+                return true;
+            
+            if (IsSimulationMode())
+                return false;
+            
+            try
+            {
+                return _uc.Ismacrostopped();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private int GetCurrentTool()
@@ -749,7 +952,7 @@ namespace Plugins.Core
 
         private double GetActualSpindleSpeed()
         {
-            if (_isSimulation()) return 0;
+            if (IsSimulationMode()) return 0;
             try
             {
                 string val = _uc.Getfield(true, 870);
@@ -774,37 +977,37 @@ namespace Plugins.Core
 
         private double GetMachineX()
         {
-            if (_isSimulation()) return 0;
+            if (IsSimulationMode()) return 0;
             try { return _uc.GetXmachpos(); }
             catch { return 0; }
         }
 
         private double GetMachineY()
         {
-            if (_isSimulation()) return 0;
+            if (IsSimulationMode()) return 0;
             try { return _uc.GetYmachpos(); }
             catch { return 0; }
         }
 
         private double GetMachineZ()
         {
-            if (_isSimulation()) return 0;
+            if (IsSimulationMode()) return 0;
             try { return _uc.GetZmachpos(); }
             catch { return 0; }
         }
 
         private bool GetLED(int ledNum)
         {
-            if (_isSimulation()) return false;
+            if (IsSimulationMode()) return false;
             try { return _uc.GetLED(ledNum); }
             catch { return false; }
         }
 
         private void SetOutput(int port, int pin, bool state)
         {
-            if (_isSimulation())
+            if (IsSimulationMode())
             {
-                _log($"[SIM] Output Port{port} Pin{pin} = {(state ? "ON" : "OFF")}");
+                Log($"[SIM] Output Port{port} Pin{pin} = {(state ? "ON" : "OFF")}");
                 return;
             }
             try
@@ -819,9 +1022,9 @@ namespace Plugins.Core
 
         private void ExecuteGCode(string code)
         {
-            if (_isSimulation())
+            if (IsSimulationMode())
             {
-                _log($"[SIM] G-code: {code}");
+                Log($"[SIM] G-code: {code}");
                 return;
             }
             try { _uc.Code(code); }
@@ -830,21 +1033,75 @@ namespace Plugins.Core
 
         private void WaitForMotionComplete()
         {
-            if (_isSimulation()) return;
+            if (IsSimulationMode()) return;
+            
+            int timeout = 30000;
+            int elapsed = 0;
+            
             try
             {
-                while (_uc.IsMoving())
+                while (_uc.IsMoving() && elapsed < timeout)
                 {
-                    System.Threading.Thread.Sleep(10);
+                    if (CheckStopRequested())
+                        return;
+                    Thread.Sleep(20);
+                    elapsed += 20;
                 }
             }
             catch { }
+            
+            if (elapsed >= timeout)
+            {
+                Log("Warning: Motion timeout");
+            }
         }
 
         private void Wait(int ms)
         {
-            if (ms > 0)
-                System.Threading.Thread.Sleep(ms);
+            if (ms <= 0) return;
+            
+            int elapsed = 0;
+            while (elapsed < ms)
+            {
+                if (CheckStopRequested())
+                    return;
+                int sleepTime = Math.Min(50, ms - elapsed);
+                Thread.Sleep(sleepTime);
+                elapsed += sleepTime;
+            }
         }
+
+        public void RequestStop()
+        {
+            _stopRequested = true;
+        }
+        
+        public ToolChangeSnapshot GetSnapshot()
+        {
+            lock (_stateLock)
+            {
+                return new ToolChangeSnapshot
+                {
+                    State = CurrentState,
+                    CurrentTool = CurrentTool,
+                    NewTool = NewTool,
+                    OldSlot = OldSlot,
+                    NewSlot = NewSlot,
+                    LastError = LastError,
+                    IsRunning = IsRunning
+                };
+            }
+        }
+    }
+    
+    public class ToolChangeSnapshot
+    {
+        public ToolChangeState State { get; set; }
+        public int CurrentTool { get; set; }
+        public int NewTool { get; set; }
+        public int OldSlot { get; set; }
+        public int NewSlot { get; set; }
+        public string LastError { get; set; }
+        public bool IsRunning { get; set; }
     }
 }

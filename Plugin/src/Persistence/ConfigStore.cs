@@ -115,6 +115,7 @@ namespace Plugins.Persistence
             sb.AppendLine($"    \"slotCount\": {config.Rack.SlotCount},");
             sb.AppendLine($"    \"slot1Position\": {F(config.Rack.Slot1Position)},");
             sb.AppendLine($"    \"slot1PositionSecondary\": {F(config.Rack.Slot1PositionSecondary)},");
+            sb.AppendLine($"    \"forkApproachPosition\": {F(config.Rack.ForkApproachPosition)},");
             sb.AppendLine($"    \"pitch\": {F(config.Rack.Pitch)}");
             sb.AppendLine("  },");
             
@@ -212,6 +213,7 @@ namespace Plugins.Persistence
             config.Rack.SlotCount = ExtractInt(json, "slotCount", 10);
             config.Rack.Slot1Position = ExtractDouble(json, "slot1Position");
             config.Rack.Slot1PositionSecondary = ExtractDouble(json, "slot1PositionSecondary");
+            config.Rack.ForkApproachPosition = ExtractDouble(json, "forkApproachPosition");
             config.Rack.Pitch = ExtractDouble(json, "pitch", 80);
             
             config.Heights.ZSafe = ExtractDouble(json, "zSafe");

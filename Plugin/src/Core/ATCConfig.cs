@@ -145,6 +145,7 @@ namespace Plugins.Core
         public int SlotCount { get; set; } = 10;
         public double Slot1Position { get; set; }
         public double Slot1PositionSecondary { get; set; }
+        public double ForkApproachPosition { get; set; }
         public double Pitch { get; set; } = 80.0;
     }
 

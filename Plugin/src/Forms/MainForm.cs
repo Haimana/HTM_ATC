@@ -2,6 +2,8 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Globalization;
+using System.Threading;
+using System.ComponentModel;
 using Plugins.Core;
 using Plugins.Persistence;
 
@@ -18,18 +20,15 @@ namespace Plugins.Forms
         private volatile bool _isClosing;
         private volatile bool _updatePending;
         private readonly object _updateLock = new object();
-        private Timer _uiTimer;
+        private System.Windows.Forms.Timer _uiTimer;
+        private BackgroundWorker _testWorker;
 
-        public MainForm(UCCNCplugin plugin, Plugininterface.Entry uc, ConfigStore configStore)
+        public MainForm(UCCNCplugin plugin, Plugininterface.Entry uc, ConfigStore configStore, ATCStateMachine stateMachine)
         {
             _uc = uc;
             _configStore = configStore;
+            _stateMachine = stateMachine;
             
-            _stateMachine = new ATCStateMachine(
-                _configStore.Config, 
-                _uc, 
-                LogMessage, 
-                () => _configStore.Config.Simulation.Enabled);
             _safetyMonitor = new SafetyMonitor(
                 _configStore.Config, 
                 _uc, 
@@ -39,6 +38,7 @@ namespace Plugins.Forms
             InitializeComponent();
             SetupUI();
             SetupUITimer();
+            SetupBackgroundWorker();
         }
 
         private void SetupUI()
@@ -49,10 +49,18 @@ namespace Plugins.Forms
 
         private void SetupUITimer()
         {
-            _uiTimer = new Timer();
+            _uiTimer = new System.Windows.Forms.Timer();
             _uiTimer.Interval = 100;
             _uiTimer.Tick += UITimer_Tick;
             _uiTimer.Start();
+        }
+
+        private void SetupBackgroundWorker()
+        {
+            _testWorker = new BackgroundWorker();
+            _testWorker.WorkerSupportsCancellation = true;
+            _testWorker.DoWork += TestWorker_DoWork;
+            _testWorker.RunWorkerCompleted += TestWorker_Completed;
         }
 
         private void UITimer_Tick(object sender, EventArgs e)
@@ -67,7 +75,11 @@ namespace Plugins.Forms
 
             try
             {
-                _safetyMonitor.CheckSafety();
+                bool simOrDemo = _configStore.Config.Simulation.Enabled || IsDemoMode();
+                if (!simOrDemo)
+                {
+                    _safetyMonitor.CheckSafety();
+                }
                 UpdateStatusDisplay();
                 UpdateSlotDisplay();
                 UpdateDiagnosticsDisplay();
@@ -75,6 +87,18 @@ namespace Plugins.Forms
             catch (Exception ex)
             {
                 PluginLogger.LogLoopException(ex);
+            }
+        }
+
+        private bool IsDemoMode()
+        {
+            try
+            {
+                return _uc.GetLED(218);
+            }
+            catch
+            {
+                return true;
             }
         }
 
@@ -116,6 +140,13 @@ namespace Plugins.Forms
 
             bool hasAnyFault = _safetyMonitor.HasActiveFaults();
             ledSafety.BackColor = hasAnyFault ? Color.Red : Color.Lime;
+            
+            var snapshot = _stateMachine.GetSnapshot();
+            if (snapshot.IsRunning)
+            {
+                lblCurrentTool.Text = $"TC: {snapshot.State}";
+                lblCurrentTool.ForeColor = Color.Orange;
+            }
         }
 
         private void UpdateSlotDisplay()
@@ -285,7 +316,7 @@ namespace Plugins.Forms
         {
             var config = _configStore.Config;
             
-            if (!_safetyMonitor.AreAllAxesHomed())
+            if (!_safetyMonitor.AreAllAxesHomed() && !IsDemoMode())
             {
                 MessageBox.Show(this, "Machine must be homed before moving.", "Not Homed", 
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -330,7 +361,7 @@ namespace Plugins.Forms
                     LogMessage("Opening drawbar (will auto-close in 3 seconds)");
                     _uc.Setoutpin(config.IO.Drawbar.Port, config.IO.Drawbar.Pin);
                     
-                    var timer = new Timer { Interval = 3000 };
+                    var timer = new System.Windows.Forms.Timer { Interval = 3000 };
                     timer.Tick += (s, args) =>
                     {
                         timer.Stop();
@@ -419,6 +450,13 @@ namespace Plugins.Forms
                 return;
             }
 
+            if (_testWorker.IsBusy)
+            {
+                MessageBox.Show(this, "Test cycle already running.", "Busy", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
             LogMessage("Starting simulated tool change cycle...");
             
             int testTool = 1;
@@ -433,7 +471,21 @@ namespace Plugins.Forms
                 }
             }
 
+            _testWorker.RunWorkerAsync(testTool);
+        }
+
+        private void TestWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            int testTool = (int)e.Argument;
+            PluginLogger.Log($"Test cycle starting on background thread for T{testTool}");
             string error = _stateMachine.StartToolChange(testTool);
+            e.Result = error;
+        }
+
+        private void TestWorker_Completed(object sender, RunWorkerCompletedEventArgs e)
+        {
+            string error = e.Result as string;
+            
             if (!string.IsNullOrEmpty(error))
             {
                 LogMessage($"Test cycle error: {error}");
@@ -444,20 +496,8 @@ namespace Plugins.Forms
             {
                 LogMessage("Test cycle completed successfully");
             }
-        }
-
-        public string ExecuteToolChange(int newTool)
-        {
-            LogMessage($"M6 T{newTool} requested");
-            string error = _stateMachine.StartToolChange(newTool);
-            
-            if (!string.IsNullOrEmpty(error))
-            {
-                LogMessage($"Tool change error: {error}");
-            }
             
             _configStore.Save();
-            return error;
         }
 
         public void ForceClose()
