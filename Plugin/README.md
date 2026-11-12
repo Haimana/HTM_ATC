@@ -107,9 +107,14 @@ When no configuration exists, the **Setup Wizard** launches automatically:
 
 ## Configuration Storage
 
-Settings are stored as JSON next to your profile:
+Settings are stored as JSON in the UCCNC Profiles folder:
 ```
-C:\UCCNC\2118\Profile\Profile_YourProfile\HTM_ATC_Config.json
+C:\UCCNC\2118\Profiles\HTM_ATC_Config_YourProfile.json
+```
+
+For example, if your profile is `ATCdev.pro`, the config file will be:
+```
+C:\UCCNC\2118\Profiles\HTM_ATC_Config_ATCdev.json
 ```
 
 ## Migrating from HTM_ATC Screenset

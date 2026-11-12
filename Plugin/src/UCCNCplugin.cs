@@ -175,13 +175,13 @@ namespace Plugins
         {
             try
             {
-                string profilePath = Path.Combine(Application.StartupPath, "Profile");
-                if (Directory.Exists(profilePath))
+                string profilesPath = Path.Combine(Application.StartupPath, "Profiles");
+                if (Directory.Exists(profilesPath))
                 {
-                    var dirs = Directory.GetDirectories(profilePath, "Profile_*");
-                    if (dirs.Length > 0)
+                    var proFiles = Directory.GetFiles(profilesPath, "*.pro");
+                    if (proFiles.Length > 0)
                     {
-                        return Path.GetFileName(dirs[0]).Replace("Profile_", "");
+                        return Path.GetFileNameWithoutExtension(proFiles[0]);
                     }
                 }
             }

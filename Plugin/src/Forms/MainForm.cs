@@ -4,7 +4,6 @@ using System.Windows.Forms;
 using System.Globalization;
 using Plugins.Core;
 using Plugins.Persistence;
-using Plugins.Simulation;
 
 namespace Plugins.Forms
 {
@@ -14,7 +13,6 @@ namespace Plugins.Forms
         private readonly ConfigStore _configStore;
         private readonly ATCStateMachine _stateMachine;
         private readonly SafetyMonitor _safetyMonitor;
-        private readonly SimulatedIO _simulatedIO;
         private readonly UCCNCplugin _plugin;
         
         private bool _mustClose;
@@ -26,7 +24,6 @@ namespace Plugins.Forms
             _uc = uc;
             _configStore = configStore;
             
-            _simulatedIO = new SimulatedIO(_configStore.Config);
             _stateMachine = new ATCStateMachine(
                 _configStore.Config, 
                 _uc, 

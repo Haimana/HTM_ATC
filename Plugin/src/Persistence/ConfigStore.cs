@@ -27,17 +27,13 @@ namespace Plugins.Persistence
 
         public ConfigStore(string uccncPath, string profileName)
         {
-            string profileFolder = Path.Combine(uccncPath, "Profile", $"Profile_{profileName}");
-            if (!Directory.Exists(profileFolder))
+            string profilesFolder = Path.Combine(uccncPath, "Profiles");
+            if (!Directory.Exists(profilesFolder))
             {
-                profileFolder = Path.Combine(uccncPath, "Profile", profileName);
-            }
-            if (!Directory.Exists(profileFolder))
-            {
-                profileFolder = Path.Combine(uccncPath, "Profile");
+                Directory.CreateDirectory(profilesFolder);
             }
             
-            _configPath = Path.Combine(profileFolder, "HTM_ATC_Config.json");
+            _configPath = Path.Combine(profilesFolder, $"HTM_ATC_Config_{profileName}.json");
             _config = ATCConfig.CreateDefault();
         }
 

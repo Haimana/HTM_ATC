@@ -709,9 +709,14 @@ The Setup Wizard provides a guided first-run experience for configuring the ATC.
 
 ## Persistence Format
 
-Configuration is stored as JSON next to the UCCNC profile:
+Configuration is stored as JSON in the UCCNC Profiles folder:
 
-**Location:** `{UCCNC_Path}/Profile/Profile_{name}/HTM_ATC_Config.json`
+**Location:** `{UCCNC_Path}/Profiles/HTM_ATC_Config_{profileName}.json`
+
+For example, if UCCNC is installed at `C:\UCCNC\2118\` and the active profile is `ATCdev.pro`:
+```
+C:\UCCNC\2118\Profiles\HTM_ATC_Config_ATCdev.json
+```
 
 **Schema:**
 ```json
