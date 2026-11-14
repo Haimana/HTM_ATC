@@ -110,6 +110,8 @@ namespace HTM_PRO.UI
                 Font = new Font("Segoe UI", 13.5f, FontStyle.Bold),
                 ForeColor = Color.White,
                 AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 14, 0),
                 Location = new Point(16, 8)
             };
 
@@ -134,6 +136,7 @@ namespace HTM_PRO.UI
                     Height = 28,
                     FlatStyle = FlatStyle.Flat,
                     Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    UseMnemonic = false,
                     Margin = new Padding(0, 0, 8, 0),
                     Cursor = Cursors.Hand
                 };
@@ -149,7 +152,8 @@ namespace HTM_PRO.UI
                 Location = new Point(16, 76),
                 Size = new Size(1050, 22),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                Font = new Font("Consolas", 9.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                UseMnemonic = false,
                 ForeColor = Color.FromArgb(130, 210, 255)
             };
 
@@ -168,33 +172,41 @@ namespace HTM_PRO.UI
 
             _btnExportSummary = CreateButton("Export Pinout (.txt)", Color.FromArgb(58, 65, 78), 165, 36);
             _btnExportSummary.Location = new Point(16, 13);
+            _btnExportSummary.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             _btnExportSummary.Click += (s, e) => ShowExportSummaryModal();
 
             _lblStatusFooter = new Label
             {
-                Location = new Point(195, 20),
-                Size = new Size(420, 22),
-                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Location = new Point(192, 20),
+                AutoSize = true,
+                UseMnemonic = false,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
                 ForeColor = _textMuted,
                 Text = "Stage 2 (ATC Setup) unlocks automatically after Stage 1 is applied."
             };
 
+            // Dedicated right-docked host prevents footer status labels from overlapping action buttons
+            var rightBtnHost = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 450,
+                BackColor = Color.Transparent
+            };
+
             _btnBack = CreateButton("< Back", Color.FromArgb(62, 68, 82), 100, 36);
-            _btnBack.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnBack.Location = new Point(footerPanel.Width - 460, 13);
+            _btnBack.Location = new Point(0, 1);
             _btnBack.Click += (s, e) => NavigateToStep(_currentStep - 1);
 
             _btnNext = CreateButton("Next >", _accentBlue, 110, 36);
-            _btnNext.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnNext.Location = new Point(footerPanel.Width - 350, 13);
+            _btnNext.Location = new Point(110, 1);
             _btnNext.Click += (s, e) => NavigateToStep(_currentStep + 1);
 
             _btnApplySave = CreateButton("Apply & Save Stage 1", _accentGreen, 210, 36);
-            _btnApplySave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnApplySave.Location = new Point(footerPanel.Width - 230, 13);
+            _btnApplySave.Location = new Point(230, 1);
             _btnApplySave.Click += BtnApplySave_Click;
 
-            footerPanel.Controls.AddRange(new Control[] { _btnExportSummary, _lblStatusFooter, _btnBack, _btnNext, _btnApplySave });
+            rightBtnHost.Controls.AddRange(new Control[] { _btnBack, _btnNext, _btnApplySave });
+            footerPanel.Controls.AddRange(new Control[] { rightBtnHost, _btnExportSummary, _lblStatusFooter });
 
             // Scrollable main content host
             _contentHost = new Panel
@@ -285,101 +297,113 @@ namespace HTM_PRO.UI
         private Panel BuildStep1EnvironmentPanel()
         {
             var root = CreateStepContainer("Step 1: Controller Hardware, Measurement Units & Setup Mode",
-                "HTM_PRO detects your UCCNC profile units and hardware controller so all subsequent pins and limits match physical hardware capabilities.");
+                "HTM_PRO automatically detects your active UCCNC hardware interface and installation measurement units, keeping separate configurations per controller.");
 
             _isBinding = true;
             try
             {
-                var detected = HardwareCatalog.DetectActiveController(_uccncMainForm);
-                var cardHw = CreateCardPanel("Motion Controller & Environment", 210);
-
-                AddFormLabel(cardHw, "Active UCCNC Profile:", 18, 42);
-                AddFormValue(cardHw, _profileService.ProfileName, 240, 42, Color.White);
-
-                AddFormLabel(cardHw, "Detected Interface:", 18, 74);
-                string devNote = detected.IsDemoMode
-                    ? $"{detected.RawDeviceType} (Demo mode active — you may select your target controller below)"
-                    : $"{detected.RawDeviceType} (Connected Hardware)";
-                AddFormValue(cardHw, devNote, 240, 74, detected.IsDemoMode ? _accentAmber : _accentGreen);
-
-                AddFormLabel(cardHw, "Target Controller Model:", 18, 108);
-                var cmbController = new ComboBox
+                bool isGenericDemo = string.Equals(_profileService.RawDeviceType, "Demo_mode", StringComparison.OrdinalIgnoreCase);
+                if (!isGenericDemo)
                 {
-                    Location = new Point(240, 104),
-                    Width = 360,
-                    DropDownStyle = ComboBoxStyle.DropDownList,
-                    BackColor = _bgInput,
-                    ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat
-                };
-
-                var specs = HardwareCatalog.GetAllSpecs().ToList();
-                foreach (var s in specs)
-                {
-                    cmbController.Items.Add(s.DisplayName);
+                    _workingConfig.ControllerType = _profileService.ActiveControllerModel.ToString();
                 }
-                int selectedIdx = specs.FindIndex(s => s.Model.ToString() == _workingConfig.ControllerType);
-                cmbController.SelectedIndex = selectedIdx >= 0 ? selectedIdx : 0;
 
+                var cardHw = CreateCardPanel("Motion Controller, Hardware Identity & Measurement Units", 235);
+
+                AddFormLabel(cardHw, "Active UCCNC Profile:", 18, 40);
+                AddFormValue(cardHw, _profileService.ProfileName, 240, 40, Color.White);
+
+                AddFormLabel(cardHw, "Active Hardware Interface:", 18, 68);
                 var lblSpecNotes = new Label
                 {
-                    Location = new Point(240, 138),
-                    Size = new Size(760, 42),
+                    Location = new Point(240, 96),
+                    Size = new Size(765, 22),
+                    UseMnemonic = false,
                     ForeColor = _textMuted,
                     Text = CurrentSpec.Notes
                 };
 
-                cmbController.SelectedIndexChanged += (s, e) =>
+                if (isGenericDemo)
                 {
-                    if (_isBinding || cmbController.SelectedIndex < 0) return;
-                    var chosen = specs[cmbController.SelectedIndex];
-                    _workingConfig.ControllerType = chosen.Model.ToString();
-                    lblSpecNotes.Text = chosen.Notes;
-                    if (_workingConfig.UseFreshSetupDefaults)
+                    var cmbController = new ComboBox
                     {
-                        PinAllocator.AutoAssignOutputs(_workingConfig, chosen);
-                        PinAllocator.AutoAssignInputs(_workingConfig, chosen);
-                    }
-                    RefreshResourceStatusBar();
-                };
+                        Location = new Point(240, 64),
+                        Width = 380,
+                        DropDownStyle = ComboBoxStyle.DropDownList,
+                        BackColor = _bgInput,
+                        ForeColor = Color.White,
+                        FlatStyle = FlatStyle.Flat
+                    };
 
-                cardHw.Controls.Add(cmbController);
+                    var specs = HardwareCatalog.GetAllSpecs().ToList();
+                    foreach (var s in specs)
+                    {
+                        cmbController.Items.Add(s.DisplayName);
+                    }
+                    int selectedIdx = specs.FindIndex(s => s.Model.ToString() == _workingConfig.ControllerType);
+                    cmbController.SelectedIndex = selectedIdx >= 0 ? selectedIdx : 0;
+
+                    cmbController.SelectedIndexChanged += (s, e) =>
+                    {
+                        if (_isBinding || cmbController.SelectedIndex < 0) return;
+                        var chosen = specs[cmbController.SelectedIndex];
+                        _workingConfig.ControllerType = chosen.Model.ToString();
+                        lblSpecNotes.Text = chosen.Notes;
+                        if (_workingConfig.UseFreshSetupDefaults)
+                        {
+                            PinAllocator.AutoAssignOutputs(_workingConfig, chosen);
+                            PinAllocator.AutoAssignInputs(_workingConfig, chosen);
+                        }
+                        RefreshResourceStatusBar();
+                    };
+
+                    cardHw.Controls.Add(cmbController);
+                }
+                else
+                {
+                    AddFormValue(cardHw, $"{CurrentSpec.DisplayName}  [{CurrentSpec.BaseHardwareFamily}]", 240, 68, Color.White);
+                }
+
                 cardHw.Controls.Add(lblSpecNotes);
+
+                AddFormLabel(cardHw, "Operating Mode & Device ID:", 18, 124);
+                string modeNote = _profileService.IsDemoMode
+                    ? $"Demo Mode (Raw: {_profileService.RawDeviceType} — Unrestricted testing on any interface)"
+                    : $"Live Hardware (Raw: {_profileService.RawDeviceType} | Serial: {_profileService.DeviceSerial})";
+                AddFormValue(cardHw, modeNote, 240, 124, _profileService.IsDemoMode ? _accentAmber : _accentGreen);
+
+                AddFormLabel(cardHw, "Measurement Units (Install):", 18, 152);
+                string unitText = _workingConfig.IsImperial
+                    ? "Imperial (Decimal Inches — in) [Auto-detected from UCCNC installation]"
+                    : "Metric (Millimeters — mm) [Auto-detected from UCCNC installation]";
+                AddFormValue(cardHw, unitText, 240, 152, Color.FromArgb(130, 215, 255));
+
+                AddFormLabel(cardHw, "Saved Interface Configs:", 18, 182);
+                var savedCtrls = _profileService.GetConfiguredControllersForProfile();
+                string savedList = savedCtrls.Count > 0 ? string.Join(", ", savedCtrls) : "None yet";
+                string statusTag = _workingConfig.Stage1Completed
+                    ? "[Stage 1 Configured]"
+                    : "[New Interface — Please review & click Apply & Save Stage 1]";
+                var lblSavedCtrls = new Label
+                {
+                    Location = new Point(240, 182),
+                    Size = new Size(765, 42),
+                    UseMnemonic = false,
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    ForeColor = _workingConfig.Stage1Completed ? _accentGreen : _accentAmber,
+                    Text = $"{savedList}   {statusTag}"
+                };
+                cardHw.Controls.Add(lblSavedCtrls);
                 root.Controls.Add(cardHw);
 
-                // Card 2: Measurement Units & Startup Mode
-                var cardMode = CreateCardPanel("Measurement Units & Setup Initialization Mode", 225);
+                // Card 2: Setup Initialization Mode & Stage 2 ATC Planning
+                var cardMode = CreateCardPanel("Setup Initialization Mode & Stage 2 ATC Planning", 165);
 
-                AddFormLabel(cardMode, "Machine Measurement Units:", 18, 42);
-                var rbMetric = CreateRadioButton("Metric (Millimeters - mm)", 240, 40, 220, !_workingConfig.IsImperial);
-                var rbImperial = CreateRadioButton("Imperial (Decimal Inches - in)", 475, 40, 260, _workingConfig.IsImperial);
-
-                rbMetric.CheckedChanged += (s, e) =>
-                {
-                    if (_isBinding || !rbMetric.Checked) return;
-                    _workingConfig.ApplyUnitBaselineDefaults(false);
-                    RefreshResourceStatusBar();
-                };
-                rbImperial.CheckedChanged += (s, e) =>
-                {
-                    if (_isBinding || !rbImperial.Checked) return;
-                    _workingConfig.ApplyUnitBaselineDefaults(true);
-                    RefreshResourceStatusBar();
-                };
-
-                var lblUnitWarn = new Label
-                {
-                    Location = new Point(240, 68),
-                    Size = new Size(750, 22),
-                    ForeColor = _textMuted,
-                    Text = "Match the measurement system chosen when UCCNC was first installed/created."
-                };
-
-                AddFormLabel(cardMode, "Initialization Mode:", 18, 102);
+                AddFormLabel(cardMode, "Initialization Mode:", 18, 44);
                 var rbFresh = CreateRadioButton("Fresh Guided Machine Setup (Auto-assign optimal defaults & pins — recommended for new install)",
-                    240, 100, 740, _workingConfig.UseFreshSetupDefaults);
+                    240, 42, 740, _workingConfig.UseFreshSetupDefaults);
                 var rbExisting = CreateRadioButton("Import & Review Existing UCCNC Profile Settings (Preserve calibrated Steps/unit & existing pins)",
-                    240, 128, 740, !_workingConfig.UseFreshSetupDefaults);
+                    240, 72, 740, !_workingConfig.UseFreshSetupDefaults);
 
                 rbFresh.CheckedChanged += (s, e) =>
                 {
@@ -400,8 +424,9 @@ namespace HTM_PRO.UI
 
                 var chkReserveAtc = new CheckBox
                 {
-                    Location = new Point(240, 168),
-                    Size = new Size(740, 26),
+                    Location = new Point(240, 114),
+                    AutoSize = true,
+                    UseMnemonic = false,
                     ForeColor = Color.FromArgb(145, 225, 175),
                     Checked = _workingConfig.ReserveResourcesForAtc,
                     Text = "Plan for Stage 2 ATC Module (keep Gantry Slave off A-axis if needed & monitor free ATC inputs/outputs)"
@@ -412,7 +437,7 @@ namespace HTM_PRO.UI
                     RefreshResourceStatusBar();
                 };
 
-                cardMode.Controls.AddRange(new Control[] { rbMetric, rbImperial, lblUnitWarn, rbFresh, rbExisting, chkReserveAtc });
+                cardMode.Controls.AddRange(new Control[] { rbFresh, rbExisting, chkReserveAtc });
                 root.Controls.Add(cardMode);
             }
             finally
@@ -435,29 +460,35 @@ namespace HTM_PRO.UI
             _isBinding = true;
             try
             {
-                // Top card: Quick Gantry & Rotary topology selector
-                var cardTopo = CreateCardPanel("Gantry Master/Slave & Auxiliary Rotary Axes", 125);
+                // Top card: Dual-Motor Master / Slave Pairing (X / Y / Z)
+                var cardTopo = CreateCardPanel("Dual-Motor Master / Slave Pairing (X / Y / Z)", 125);
 
-                string ySlave = GetSlaveChannelForMaster("Y");
                 string xSlave = GetSlaveChannelForMaster("X");
+                string ySlave = GetSlaveChannelForMaster("Y");
+                string zSlave = GetSlaveChannelForMaster("Z");
 
-                AddFormLabel(cardTopo, "Y-Axis Gantry Slave:", 18, 40);
-                var cmbYSlave = CreateCompactCombo(190, 36, 150, new[] { "None", "C (Recommended)", "B", "A" });
+                AddFormLabel(cardTopo, "X-Axis Slave Motor:", 18, 40);
+                var cmbXSlave = CreateCompactCombo(158, 36, 130, new[] { "None", "A", "B", "C" });
+                cmbXSlave.SelectedIndex = xSlave == "A" ? 1 : (xSlave == "B" ? 2 : (xSlave == "C" ? 3 : 0));
+
+                AddFormLabel(cardTopo, "Y-Axis Slave Motor:", 315, 40);
+                var cmbYSlave = CreateCompactCombo(455, 36, 155, new[] { "None", "C (Recommended)", "B", "A" });
                 cmbYSlave.SelectedIndex = ySlave == "C" ? 1 : (ySlave == "B" ? 2 : (ySlave == "A" ? 3 : 0));
 
-                AddFormLabel(cardTopo, "X-Axis Gantry Slave:", 370, 40);
-                var cmbXSlave = CreateCompactCombo(530, 36, 130, new[] { "None", "B", "C", "A" });
-                cmbXSlave.SelectedIndex = xSlave == "B" ? 1 : (xSlave == "C" ? 2 : (xSlave == "A" ? 3 : 0));
+                AddFormLabel(cardTopo, "Z-Axis Slave Motor:", 638, 40);
+                var cmbZSlave = CreateCompactCombo(778, 36, 155, new[] { "None", "B (Recommended)", "C", "A" });
+                cmbZSlave.SelectedIndex = zSlave == "B" ? 1 : (zSlave == "C" ? 2 : (zSlave == "A" ? 3 : 0));
 
                 var lblTopoHint = new Label
                 {
                     Location = new Point(18, 76),
                     Size = new Size(990, 38),
+                    UseMnemonic = false,
                     ForeColor = _textMuted,
-                    Text = "Tip: Assigning Y-Slave to channel C keeps A free for a 4th rotary work axis and leaves B/A available if Stage 2 uses a Rotary Tool Magazine."
+                    Text = "Tip: Pair any master axis (X, Y, or Z) with a slave motor on A/B/C (e.g. Y->C and Z->B simultaneously), or set each channel's Role directly in the table below."
                 };
 
-                cardTopo.Controls.AddRange(new Control[] { cmbYSlave, cmbXSlave, lblTopoHint });
+                cardTopo.Controls.AddRange(new Control[] { cmbXSlave, cmbYSlave, cmbZSlave, lblTopoHint });
                 root.Controls.Add(cardTopo);
 
                 // Axes kinematics table card
@@ -474,13 +505,9 @@ namespace HTM_PRO.UI
                 AddColHeader(cardAxes, "Rotary / Rollover", 848, y, 160);
                 y += 28;
 
-                // Helper to apply slave changes cleanly and rebuild Step 2
-                void ApplyGantryChoice(string masterAxis, ComboBox srcCombo)
+                // Helper to apply slave pairing cleanly to X, Y, or Z and rebuild Step 2
+                void ApplyGantryChoice(string masterAxis, string chosenChannel)
                 {
-                    if (_isBinding) return;
-                    string raw = srcCombo.SelectedItem?.ToString() ?? "None";
-                    string chosenChannel = raw.StartsWith("C") ? "C" : raw.StartsWith("B") ? "B" : raw.StartsWith("A") ? "A" : "None";
-
                     foreach (var ax in _workingConfig.Axes.Where(a => a.Role == AxisRole.GantrySlave && a.MasterAxis == masterAxis))
                     {
                         ax.Role = AxisRole.Unused;
@@ -488,8 +515,13 @@ namespace HTM_PRO.UI
                         ax.Enabled = false;
                     }
 
-                    if (chosenChannel != "None")
+                    if (!string.IsNullOrEmpty(chosenChannel) && chosenChannel != "None")
                     {
+                        var masterAx = _workingConfig.GetAxis(masterAxis);
+                        masterAx.Enabled = true;
+                        masterAx.Role = AxisRole.PrimaryLinear;
+                        masterAx.MasterAxis = "None";
+
                         var targetAx = _workingConfig.GetAxis(chosenChannel);
                         targetAx.Role = AxisRole.GantrySlave;
                         targetAx.MasterAxis = masterAxis;
@@ -507,8 +539,15 @@ namespace HTM_PRO.UI
                     RenderCurrentStep();
                 }
 
-                cmbYSlave.SelectedIndexChanged += (s, e) => ApplyGantryChoice("Y", cmbYSlave);
-                cmbXSlave.SelectedIndexChanged += (s, e) => ApplyGantryChoice("X", cmbXSlave);
+                string ParseSlaveChannel(ComboBox cb)
+                {
+                    string raw = cb.SelectedItem?.ToString() ?? "None";
+                    return raw.StartsWith("C") ? "C" : raw.StartsWith("B") ? "B" : raw.StartsWith("A") ? "A" : "None";
+                }
+
+                cmbXSlave.SelectedIndexChanged += (s, e) => { if (!_isBinding) ApplyGantryChoice("X", ParseSlaveChannel(cmbXSlave)); };
+                cmbYSlave.SelectedIndexChanged += (s, e) => { if (!_isBinding) ApplyGantryChoice("Y", ParseSlaveChannel(cmbYSlave)); };
+                cmbZSlave.SelectedIndexChanged += (s, e) => { if (!_isBinding) ApplyGantryChoice("Z", ParseSlaveChannel(cmbZSlave)); };
 
                 foreach (var ax in _workingConfig.Axes)
                 {
@@ -519,6 +558,7 @@ namespace HTM_PRO.UI
                         Text = ax.AxisName,
                         Location = new Point(20, y + 6),
                         Size = new Size(40, 22),
+                        UseMnemonic = false,
                         Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                         ForeColor = ax.Enabled ? _accentBlue : _textMuted
                     };
@@ -528,24 +568,97 @@ namespace HTM_PRO.UI
                         Location = new Point(78, y + 6),
                         Size = new Size(24, 22),
                         Checked = ax.Enabled,
-                        Enabled = !isSlave && ax.AxisName != "X" && ax.AxisName != "Y" && ax.AxisName != "Z"
+                        Enabled = !isSlave
                     };
 
-                    string roleDisplay = ax.Role switch
+                    Control roleControl;
+                    if (ax.IsRotaryChannel)
                     {
-                        AxisRole.PrimaryLinear => "Primary Linear",
-                        AxisRole.GantrySlave => $"Slave -> {ax.MasterAxis}",
-                        AxisRole.RotaryWorkAxis => "Rotary Work Axis",
-                        AxisRole.ReservedForAtcRotary => "Reserved (ATC)",
-                        _ => ax.IsRotaryChannel ? "Unused (Free for ATC)" : "Unused"
-                    };
-                    var lblRole = new Label
+                        string[] roleItems =
+                        {
+                            "Unused (Free)",
+                            "Slave -> X",
+                            "Slave -> Y",
+                            "Slave -> Z",
+                            "Rotary Work Axis",
+                            "Linear Work Axis",
+                            "Reserved (ATC)"
+                        };
+                        var cmbRole = CreateCompactCombo(125, y + 2, 165, roleItems);
+                        cmbRole.SelectedIndex = ax.Role switch
+                        {
+                            AxisRole.GantrySlave when ax.MasterAxis == "X" => 1,
+                            AxisRole.GantrySlave when ax.MasterAxis == "Y" => 2,
+                            AxisRole.GantrySlave when ax.MasterAxis == "Z" => 3,
+                            AxisRole.RotaryWorkAxis => 4,
+                            AxisRole.PrimaryLinear => 5,
+                            AxisRole.ReservedForAtcRotary => 6,
+                            _ => 0
+                        };
+                        cmbRole.SelectedIndexChanged += (s, e) =>
+                        {
+                            if (_isBinding) return;
+                            switch (cmbRole.SelectedIndex)
+                            {
+                                case 1:
+                                    ApplyGantryChoice("X", ax.AxisName);
+                                    return;
+                                case 2:
+                                    ApplyGantryChoice("Y", ax.AxisName);
+                                    return;
+                                case 3:
+                                    ApplyGantryChoice("Z", ax.AxisName);
+                                    return;
+                                case 4:
+                                    ax.Role = AxisRole.RotaryWorkAxis;
+                                    ax.MasterAxis = "None";
+                                    ax.Enabled = true;
+                                    ax.IsRotary = true;
+                                    break;
+                                case 5:
+                                    ax.Role = AxisRole.PrimaryLinear;
+                                    ax.MasterAxis = "None";
+                                    ax.Enabled = true;
+                                    ax.IsRotary = false;
+                                    ax.RotaryRollover = false;
+                                    break;
+                                case 6:
+                                    ax.Role = AxisRole.ReservedForAtcRotary;
+                                    ax.MasterAxis = "None";
+                                    ax.Enabled = false;
+                                    break;
+                                default:
+                                    ax.Role = AxisRole.Unused;
+                                    ax.MasterAxis = "None";
+                                    ax.Enabled = false;
+                                    break;
+                            }
+
+                            if (_workingConfig.UseFreshSetupDefaults)
+                            {
+                                PinAllocator.AutoAssignOutputs(_workingConfig, CurrentSpec);
+                                PinAllocator.AutoAssignInputs(_workingConfig, CurrentSpec);
+                            }
+                            RenderCurrentStep();
+                        };
+                        roleControl = cmbRole;
+                    }
+                    else
                     {
-                        Text = roleDisplay,
-                        Location = new Point(125, y + 6),
-                        Size = new Size(165, 22),
-                        ForeColor = isSlave ? _accentAmber : (ax.Enabled ? Color.White : _textMuted)
-                    };
+                        string pairedSlave = GetSlaveChannelForMaster(ax.AxisName);
+                        string roleDisplay = pairedSlave != "None"
+                            ? $"Master + Slave [{pairedSlave}]"
+                            : (ax.Enabled ? "Primary Linear" : "Unused");
+                        roleControl = new Label
+                        {
+                            Text = roleDisplay,
+                            Location = new Point(125, y + 6),
+                            Size = new Size(165, 22),
+                            UseMnemonic = false,
+                            Font = pairedSlave != "None" ? new Font("Segoe UI", 9f, FontStyle.Bold) : Font,
+                            ForeColor = pairedSlave != "None" ? _accentGreen : (ax.Enabled ? Color.White : _textMuted)
+                        };
+                    }
 
                     var tbSteps = CreateNumericBox(300, y + 2, 100, ax.StepsPerUnit.ToString("0.####", CultureInfo.InvariantCulture), !isSlave && ax.Enabled);
                     var tbVel = CreateNumericBox(415, y + 2, 110, ax.MaxVelocity.ToString("0.##", CultureInfo.InvariantCulture), !isSlave && ax.Enabled);
@@ -564,6 +677,16 @@ namespace HTM_PRO.UI
                     {
                         if (_isBinding) return;
                         ax.Enabled = chkEn.Checked;
+                        if (!ax.Enabled)
+                        {
+                            // Clear any slaves attached to a disabled master axis
+                            foreach (var sl in _workingConfig.Axes.Where(a => a.Role == AxisRole.GantrySlave && a.MasterAxis == ax.AxisName))
+                            {
+                                sl.Role = AxisRole.Unused;
+                                sl.MasterAxis = "None";
+                                sl.Enabled = false;
+                            }
+                        }
                         ax.Role = ax.Enabled
                             ? (ax.IsRotaryChannel ? AxisRole.RotaryWorkAxis : AxisRole.PrimaryLinear)
                             : AxisRole.Unused;
@@ -586,7 +709,7 @@ namespace HTM_PRO.UI
                     });
                     chkInvDir.CheckedChanged += (s, e) => ax.DirNegate = chkInvDir.Checked;
 
-                    cardAxes.Controls.AddRange(new Control[] { lblAx, chkEn, lblRole, tbSteps, tbVel, tbAcc, tbTravel, chkInvDir });
+                    cardAxes.Controls.AddRange(new Control[] { lblAx, chkEn, roleControl, tbSteps, tbVel, tbAcc, tbTravel, chkInvDir });
 
                     if (ax.IsRotaryChannel)
                     {
@@ -595,6 +718,7 @@ namespace HTM_PRO.UI
                             Text = "Rotary",
                             Location = new Point(848, y + 5),
                             Size = new Size(72, 22),
+                            UseMnemonic = false,
                             ForeColor = _textMuted,
                             Checked = ax.IsRotary,
                             Enabled = ax.Enabled && !isSlave
@@ -604,6 +728,7 @@ namespace HTM_PRO.UI
                             Text = "360°",
                             Location = new Point(924, y + 5),
                             Size = new Size(65, 22),
+                            UseMnemonic = false,
                             ForeColor = _textMuted,
                             Checked = ax.RotaryRollover,
                             Enabled = ax.Enabled && !isSlave && ax.IsRotary
@@ -777,28 +902,38 @@ namespace HTM_PRO.UI
             _isBinding = true;
             try
             {
-                var cardStrat = CreateCardPanel("Limit & Home Wiring Strategy", 160);
+                var cardStrat = CreateCardPanel("Limit & Home Wiring Strategy", 195);
 
-                var rbHomeSoft = CreateRadioButton("1. Home Only + Soft Limits (1 Input/motor — Recommended, frees maximum pins for ATC)", 18, 36, 700,
+                AddFormLabel(cardStrat, "Home Sensor Grouping:", 18, 40);
+                var cmbHomeGrouping = CreateCompactCombo(190, 36, 510, new[]
+                {
+                    "Individual Home Pin per Motor (1 Input / motor)",
+                    "1 Common Master Home Pin + 1 Common Slave Home Pin (2 Inputs total)",
+                    "1 Single Common Home Pin for All Axes (1 Input total)"
+                });
+                cmbHomeGrouping.SelectedIndex = (int)_workingConfig.HomeGrouping;
+
+                var rbHomeSoft = CreateRadioButton("1. Home Only + Soft Limits (Recommended — frees maximum pins for ATC)", 18, 72, 700,
                     _workingConfig.LimitStrategy == LimitHomeWiringStrategy.HomeOnlyWithSoftLimits);
-                var rbSharedHL = CreateRadioButton("2. Shared Home + Limit Switch per Axis (1 Input/motor — dual-assigned in UCCNC)", 18, 62, 700,
+                var rbSharedHL = CreateRadioButton("2. Shared Home + Limit Switch per Axis (dual-assigned in UCCNC)", 18, 98, 700,
                     _workingConfig.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis);
-                var rbSeriesLim = CreateRadioButton("3. Individual Home + 1 Series NC Limit Loop (1 Input/motor + 1 Common Limit pin)", 18, 88, 700,
+                var rbSeriesLim = CreateRadioButton("3. Home + 1 Series NC Limit Loop (+ 1 Common Limit pin)", 18, 124, 700,
                     _workingConfig.LimitStrategy == LimitHomeWiringStrategy.IndividualHomePlusSeriesLimitPin);
-                var rbSepAll = CreateRadioButton("4. Separate Home, Limit- and Limit+ per Axis (3 Inputs/motor — high pin consumption)", 18, 114, 700,
+                var rbSepAll = CreateRadioButton("4. Separate Home, Limit- and Limit+ per Axis (high pin consumption)", 18, 150, 700,
                     _workingConfig.LimitStrategy == LimitHomeWiringStrategy.SeparateHomeLimitMinusLimitPlus);
 
                 var chkSlaveHome = new CheckBox
                 {
                     Location = new Point(730, 38),
-                    Size = new Size(275, 24),
+                    AutoSize = true,
+                    UseMnemonic = false,
                     ForeColor = Color.FromArgb(145, 225, 175),
                     Checked = _workingConfig.IndependentSlaveHome,
                     Text = "Slave Gantry Auto-Squaring Home"
                 };
 
                 var btnAutoIn = CreateButton("Smart Auto-Assign Inputs", _accentBlue, 220, 34);
-                btnAutoIn.Location = new Point(770, 74);
+                btnAutoIn.Location = new Point(770, 78);
                 btnAutoIn.Click += (s, e) =>
                 {
                     PinAllocator.AutoAssignInputs(_workingConfig, CurrentSpec);
@@ -812,6 +947,15 @@ namespace HTM_PRO.UI
                     PinAllocator.AutoAssignInputs(_workingConfig, CurrentSpec);
                     RenderCurrentStep();
                 }
+
+                cmbHomeGrouping.SelectedIndexChanged += (s, e) =>
+                {
+                    if (_isBinding || cmbHomeGrouping.SelectedIndex < 0) return;
+                    _workingConfig.HomeGrouping = (HomePinGrouping)cmbHomeGrouping.SelectedIndex;
+                    ApplyHomeGroupingToExistingOrAuto(spec);
+                    RenderCurrentStep();
+                };
+
                 rbHomeSoft.CheckedChanged += (s, e) => { if (rbHomeSoft.Checked) SetLimStrat(LimitHomeWiringStrategy.HomeOnlyWithSoftLimits); };
                 rbSharedHL.CheckedChanged += (s, e) => { if (rbSharedHL.Checked) SetLimStrat(LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis); };
                 rbSeriesLim.CheckedChanged += (s, e) => { if (rbSeriesLim.Checked) SetLimStrat(LimitHomeWiringStrategy.IndividualHomePlusSeriesLimitPin); };
@@ -824,7 +968,10 @@ namespace HTM_PRO.UI
                     RenderCurrentStep();
                 };
 
-                cardStrat.Controls.AddRange(new Control[] { rbHomeSoft, rbSharedHL, rbSeriesLim, rbSepAll, chkSlaveHome, btnAutoIn });
+                cardStrat.Controls.AddRange(new Control[]
+                {
+                    cmbHomeGrouping, rbHomeSoft, rbSharedHL, rbSeriesLim, rbSepAll, chkSlaveHome, btnAutoIn
+                });
                 root.Controls.Add(cardStrat);
 
                 // Per-axis Home / Limit / Soft Limits table
@@ -845,15 +992,30 @@ namespace HTM_PRO.UI
                 bool showSepLimits = _workingConfig.LimitStrategy == LimitHomeWiringStrategy.SeparateHomeLimitMinusLimitPlus;
                 bool showSeriesLimits = _workingConfig.LimitStrategy == LimitHomeWiringStrategy.IndividualHomePlusSeriesLimitPin;
 
+                List<AxisConfig> GetGroupedHomeTargets(AxisConfig sourceAxis)
+                {
+                    if (_workingConfig.HomeGrouping == HomePinGrouping.CommonMasterAndCommonSlave)
+                    {
+                        bool isSourceSlave = sourceAxis.Role == AxisRole.GantrySlave;
+                        return activeAxes.Where(a => (a.Role == AxisRole.GantrySlave) == isSourceSlave).ToList();
+                    }
+                    if (_workingConfig.HomeGrouping == HomePinGrouping.SingleCommonAllAxes)
+                    {
+                        return activeAxes;
+                    }
+                    return new List<AxisConfig> { sourceAxis };
+                }
+
                 foreach (var ax in activeAxes)
                 {
                     bool isSlave = ax.Role == AxisRole.GantrySlave;
-                    string lbl = isSlave ? $"{ax.AxisName} (Sl)" : ax.AxisName;
+                    string lbl = isSlave ? $"{ax.AxisName} (Sl->{ax.MasterAxis})" : ax.AxisName;
                     cardAxes.Controls.Add(new Label
                     {
                         Text = lbl,
                         Location = new Point(16, y + 6),
-                        Size = new Size(80, 22),
+                        Size = new Size(82, 22),
+                        UseMnemonic = false,
                         Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                         ForeColor = isSlave ? _accentAmber : Color.White
                     });
@@ -861,23 +1023,41 @@ namespace HTM_PRO.UI
                     var cbHome = CreatePinComboBox(spec, isInput: true, 100, y + 2, 165, ax.HomePort, ax.HomePin,
                         (pt, pn) =>
                         {
-                            ax.HomePort = pt; ax.HomePin = pn;
-                            if (_workingConfig.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis)
+                            var targets = GetGroupedHomeTargets(ax);
+                            foreach (var t in targets)
                             {
-                                if (ax.HomeDirectionPositive) { ax.LimitPlusPort = pt; ax.LimitPlusPin = pn; }
-                                else { ax.LimitMinusPort = pt; ax.LimitMinusPin = pn; }
+                                t.HomePort = pt;
+                                t.HomePin = pn;
+                                PinAllocator.ApplySharedHomeAndLimitIfNeeded(_workingConfig, t, pt, pn);
+                            }
+
+                            if (targets.Count > 1 || _workingConfig.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis)
+                            {
                                 RenderCurrentStep();
                             }
-                            else RefreshResourceStatusBar();
+                            else
+                            {
+                                RefreshResourceStatusBar();
+                            }
                         });
-                    cbHome.Enabled = !isSlave || _workingConfig.IndependentSlaveHome;
+                    cbHome.Enabled = true;
 
                     var chkHomeNeg = CreateCompactCheck(274, y + 6, ax.HomeNegate, v =>
                     {
-                        ax.HomeNegate = v;
-                        if (_workingConfig.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis)
+                        var targets = GetGroupedHomeTargets(ax);
+                        foreach (var t in targets)
                         {
-                            ax.LimitMinusNegate = v; ax.LimitPlusNegate = v;
+                            t.HomeNegate = v;
+                            if (_workingConfig.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis)
+                            {
+                                t.LimitMinusNegate = v;
+                                t.LimitPlusNegate = v;
+                            }
+                        }
+
+                        if (targets.Count > 1)
+                        {
+                            RenderCurrentStep();
                         }
                     });
 
@@ -920,7 +1100,8 @@ namespace HTM_PRO.UI
                 {
                     Text = "Enable Soft Limits",
                     Location = new Point(18, 38),
-                    Size = new Size(160, 24),
+                    AutoSize = true,
+                    UseMnemonic = false,
                     ForeColor = Color.White,
                     Checked = _workingConfig.EnableSoftLimits
                 };
@@ -930,7 +1111,8 @@ namespace HTM_PRO.UI
                 {
                     Text = "Require Homing before Cycle Start",
                     Location = new Point(18, 66),
-                    Size = new Size(255, 24),
+                    AutoSize = true,
+                    UseMnemonic = false,
                     ForeColor = Color.White,
                     Checked = _workingConfig.CheckHomeOnCycleStart
                 };
@@ -999,6 +1181,7 @@ namespace HTM_PRO.UI
                     Text = "Probe 2 (3D Probe):",
                     Location = new Point(18, 112),
                     Size = new Size(170, 24),
+                    UseMnemonic = false,
                     ForeColor = Color.White,
                     Checked = _workingConfig.UseProbe2
                 };
@@ -1046,6 +1229,7 @@ namespace HTM_PRO.UI
                     Text = "Mist (M7):",
                     Location = new Point(530, 148),
                     Size = new Size(120, 24),
+                    UseMnemonic = false,
                     ForeColor = Color.White,
                     Checked = _workingConfig.UseMistM7
                 };
@@ -1065,6 +1249,7 @@ namespace HTM_PRO.UI
                     Text = "Flood (M8):",
                     Location = new Point(530, 180),
                     Size = new Size(120, 24),
+                    UseMnemonic = false,
                     ForeColor = Color.White,
                     Checked = _workingConfig.UseFloodM8
                 };
@@ -1200,6 +1385,8 @@ namespace HTM_PRO.UI
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 ForeColor = Color.White,
                 AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 14, 0),
                 Margin = new Padding(0, 2, 0, 2)
             };
             var lblSub = new Label
@@ -1208,6 +1395,7 @@ namespace HTM_PRO.UI
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = _textMuted,
                 AutoSize = true,
+                UseMnemonic = false,
                 MaximumSize = new Size(1020, 40),
                 Margin = new Padding(0, 0, 0, 10)
             };
@@ -1237,6 +1425,8 @@ namespace HTM_PRO.UI
                 Text = title,
                 Location = new Point(14, 10),
                 AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 14, 0),
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(140, 195, 255)
             };
@@ -1251,6 +1441,8 @@ namespace HTM_PRO.UI
                 Text = text,
                 Location = new Point(x, y),
                 AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 14, 0),
                 ForeColor = _textMuted
             });
         }
@@ -1262,6 +1454,8 @@ namespace HTM_PRO.UI
                 Text = text,
                 Location = new Point(x, y),
                 AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 14, 0),
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = col
             });
@@ -1274,6 +1468,7 @@ namespace HTM_PRO.UI
                 Text = text,
                 Location = new Point(x, y),
                 Size = new Size(width, 20),
+                UseMnemonic = false,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(150, 195, 255)
             });
@@ -1285,7 +1480,9 @@ namespace HTM_PRO.UI
             {
                 Text = text,
                 Location = new Point(x, y),
-                Size = new Size(w, 24),
+                AutoSize = true,
+                UseMnemonic = false,
+                Padding = new Padding(0, 0, 16, 0),
                 ForeColor = Color.White,
                 Checked = isChecked
             };
@@ -1390,6 +1587,7 @@ namespace HTM_PRO.UI
                 Text = text,
                 Location = new Point(x, y),
                 AutoSize = true,
+                UseMnemonic = false,
                 ForeColor = _textMuted,
                 Checked = initial
             };
@@ -1421,10 +1619,97 @@ namespace HTM_PRO.UI
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                UseMnemonic = false,
                 Cursor = Cursors.Hand
             };
             btn.FlatAppearance.BorderSize = 0;
             return btn;
+        }
+
+        private void ApplyHomeGroupingToExistingOrAuto(ControllerHardwareSpec spec)
+        {
+            var masters = _workingConfig.Axes.Where(a => a.Enabled && a.Role != AxisRole.GantrySlave).ToList();
+            var slaves = _workingConfig.Axes.Where(a => a.Enabled && a.Role == AxisRole.GantrySlave).ToList();
+
+            if (_workingConfig.HomeGrouping == HomePinGrouping.IndividualPerMotor)
+            {
+                if (_workingConfig.UseFreshSetupDefaults)
+                {
+                    PinAllocator.AutoAssignInputs(_workingConfig, spec);
+                }
+                return;
+            }
+
+            var firstMasterWithPin = masters.FirstOrDefault(a => a.HomePort > 0 && a.HomePin > 0);
+            if (firstMasterWithPin == null)
+            {
+                if (_workingConfig.HomeGrouping == HomePinGrouping.CommonMasterAndCommonSlave && slaves.Count > 0)
+                {
+                    _workingConfig.IndependentSlaveHome = true;
+                }
+                PinAllocator.AutoAssignInputs(_workingConfig, spec);
+                return;
+            }
+
+            int mPort = firstMasterWithPin.HomePort;
+            int mPin = firstMasterWithPin.HomePin;
+            bool mNeg = firstMasterWithPin.HomeNegate;
+
+            if (_workingConfig.HomeGrouping == HomePinGrouping.CommonMasterAndCommonSlave)
+            {
+                foreach (var m in masters)
+                {
+                    m.HomePort = mPort;
+                    m.HomePin = mPin;
+                    m.HomeNegate = mNeg;
+                    PinAllocator.ApplySharedHomeAndLimitIfNeeded(_workingConfig, m, mPort, mPin);
+                }
+
+                if (slaves.Count > 0)
+                {
+                    _workingConfig.IndependentSlaveHome = true;
+                    var firstSlaveWithPin = slaves.FirstOrDefault(s => s.HomePort > 0 && s.HomePin > 0 && !(s.HomePort == mPort && s.HomePin == mPin));
+                    int sPort = 0;
+                    int sPin = 0;
+                    bool sNeg = false;
+
+                    if (firstSlaveWithPin != null)
+                    {
+                        sPort = firstSlaveWithPin.HomePort;
+                        sPin = firstSlaveWithPin.HomePin;
+                        sNeg = firstSlaveWithPin.HomeNegate;
+                    }
+                    else
+                    {
+                        var used = new HashSet<(int, int)> { (mPort, mPin) };
+                        if (_workingConfig.EstopPort > 0) used.Add((_workingConfig.EstopPort, _workingConfig.EstopPin));
+                        if (_workingConfig.Probe1Port > 0) used.Add((_workingConfig.Probe1Port, _workingConfig.Probe1Pin));
+                        if (_workingConfig.UseProbe2 && _workingConfig.Probe2Port > 0) used.Add((_workingConfig.Probe2Port, _workingConfig.Probe2Pin));
+
+                        var freePin = spec.EnumerateAllInputs(true).FirstOrDefault(p => !used.Contains(p));
+                        sPort = freePin.Port;
+                        sPin = freePin.Pin;
+                    }
+
+                    foreach (var s in slaves)
+                    {
+                        s.HomePort = sPort;
+                        s.HomePin = sPin;
+                        s.HomeNegate = sNeg;
+                        PinAllocator.ApplySharedHomeAndLimitIfNeeded(_workingConfig, s, sPort, sPin);
+                    }
+                }
+            }
+            else if (_workingConfig.HomeGrouping == HomePinGrouping.SingleCommonAllAxes)
+            {
+                foreach (var ax in _workingConfig.Axes.Where(a => a.Enabled))
+                {
+                    ax.HomePort = mPort;
+                    ax.HomePin = mPin;
+                    ax.HomeNegate = mNeg;
+                    PinAllocator.ApplySharedHomeAndLimitIfNeeded(_workingConfig, ax, mPort, mPin);
+                }
+            }
         }
 
         private string GetSlaveChannelForMaster(string masterAxis)

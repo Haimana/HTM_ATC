@@ -48,6 +48,7 @@ namespace HTM_PRO.Core
     {
         public ControllerModel Model { get; }
         public string DisplayName { get; }
+        public string BaseHardwareFamily { get; }
         public string Notes { get; }
         public IReadOnlyDictionary<int, PortSpec> Ports { get; }
         public IReadOnlyList<int> PreferredOutputPortOrder { get; }
@@ -60,6 +61,7 @@ namespace HTM_PRO.Core
         public ControllerHardwareSpec(
             ControllerModel model,
             string displayName,
+            string baseHardwareFamily,
             string notes,
             IEnumerable<PortSpec> ports,
             int[] preferredOutputPortOrder,
@@ -67,6 +69,7 @@ namespace HTM_PRO.Core
         {
             Model = model;
             DisplayName = displayName;
+            BaseHardwareFamily = baseHardwareFamily;
             Notes = notes;
             Ports = ports.ToDictionary(p => p.PortNumber);
             PreferredOutputPortOrder = Array.AsReadOnly(preferredOutputPortOrder);
@@ -136,6 +139,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC100] = new ControllerHardwareSpec(
                     ControllerModel.UC100,
                     "UC100 (USB - 1 LPT Port)",
+                    "UC100 (USB)",
                     "5 Inputs, 12 Outputs. Suitable for 3-4 axes; ATC must use 0-1 input modes (Software Tracking).",
                     new[] { new PortSpec(1, StdLptInputs, StdLptOutputs) },
                     new[] { 1 },
@@ -144,6 +148,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC400ETH] = new ControllerHardwareSpec(
                     ControllerModel.UC400ETH,
                     "UC400ETH (Ethernet - 2 LPT Ports)",
+                    "UC400ETH (Ethernet)",
                     "10 Inputs, 24 Outputs. Good for 3-5 axes; supports ATC via Spindle Sensors / Single Active-Slot Sensor.",
                     new[]
                     {
@@ -156,6 +161,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.AXBB] = new ControllerHardwareSpec(
                     ControllerModel.AXBB,
                     "AXBB-E (Ethernet Integrated Controller)",
+                    "AXBB-E (Ethernet)",
                     "11 Inputs (6x24V isolated on P2 + 5xLPT on P3), 29 Outputs. Dedicated step/dir on Port 1.",
                     new[]
                     {
@@ -169,6 +175,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300_5LPT] = new ControllerHardwareSpec(
                     ControllerModel.UC300_5LPT,
                     "UC300-5LPT (USB - 5 Ports)",
+                    "UC300 (USB)",
                     "49 Inputs, 36 Outputs. Ports 2 & 3 provide 12 outputs each (ideal for motors); Ports 1, 4, 5 provide 13 inputs each.",
                     new[]
                     {
@@ -184,6 +191,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300ETH_5LPT] = new ControllerHardwareSpec(
                     ControllerModel.UC300ETH_5LPT,
                     "UC300ETH-5LPT (Ethernet - 5 Ports)",
+                    "UC300ETH (Ethernet)",
                     "49 Inputs, 36 Outputs. Ports 2 & 3 provide 12 outputs each (ideal for motors); Ports 1, 4, 5 provide 13 inputs each.",
                     new[]
                     {
@@ -199,6 +207,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300ETH_UB1] = new ControllerHardwareSpec(
                     ControllerModel.UC300ETH_UB1,
                     "UC300ETH-UB1 (CNCroom UB1 Breakout)",
+                    "UC300ETH (Ethernet)",
                     "49 Inputs, 36 Outputs (5LPT layout on UB1 industrial 24V board).",
                     new[]
                     {
@@ -214,6 +223,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300_M44] = new ControllerHardwareSpec(
                     ControllerModel.UC300_M44,
                     "UC300-M44 (USB - M44 Motherboard)",
+                    "UC300 (USB)",
                     "52 Inputs, 33 Outputs. Port 1 & 5 for primary outputs; Port 4 is all 17 inputs.",
                     new[]
                     {
@@ -229,6 +239,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300ETH_M44] = new ControllerHardwareSpec(
                     ControllerModel.UC300ETH_M44,
                     "UC300ETH-M44 (Ethernet - M44 Motherboard)",
+                    "UC300ETH (Ethernet)",
                     "52 Inputs, 33 Outputs. Port 1 & 5 for primary outputs; Port 4 is all 17 inputs.",
                     new[]
                     {
@@ -244,6 +255,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300ETH_M45] = new ControllerHardwareSpec(
                     ControllerModel.UC300ETH_M45,
                     "UC300ETH-M45 (Ethernet - M45 Motherboard)",
+                    "UC300ETH (Ethernet)",
                     "49 Inputs, 36 Outputs. Ports 1 & 4 have 12 outputs each; Ports 2, 3, 5 have 13 inputs each.",
                     new[]
                     {
@@ -259,6 +271,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300_5441] = new ControllerHardwareSpec(
                     ControllerModel.UC300_5441,
                     "UC300-5441 (USB - Hi/Low Motherboard)",
+                    "UC300 (USB)",
                     "54 Inputs (Ports 1-3 all inputs), 31 Outputs (Ports 4-5).",
                     new[]
                     {
@@ -274,6 +287,7 @@ namespace HTM_PRO.Core
                 [ControllerModel.UC300ETH_5441] = new ControllerHardwareSpec(
                     ControllerModel.UC300ETH_5441,
                     "UC300ETH-5441 (Ethernet - Hi/Low Motherboard)",
+                    "UC300ETH (Ethernet)",
                     "54 Inputs (Ports 1-3 all inputs), 31 Outputs (Ports 4-5).",
                     new[]
                     {
@@ -320,6 +334,19 @@ namespace HTM_PRO.Core
                     : ControllerModel.UC300_5441;
             }
 
+            if (norm.Equals("UC300_ISOBOB", StringComparison.OrdinalIgnoreCase) ||
+                norm.Equals("UC300_STEPPER", StringComparison.OrdinalIgnoreCase))
+            {
+                return ControllerModel.UC300_5LPT;
+            }
+
+            if (norm.Equals("UC300ETH_ISOBOB", StringComparison.OrdinalIgnoreCase) ||
+                norm.Equals("UC300ETH_STEPPER", StringComparison.OrdinalIgnoreCase) ||
+                norm.Equals("UCMIB", StringComparison.OrdinalIgnoreCase))
+            {
+                return ControllerModel.UC300ETH_5LPT;
+            }
+
             if (Enum.TryParse<ControllerModel>(norm, true, out var parsed))
             {
                 return parsed;
@@ -329,32 +356,55 @@ namespace HTM_PRO.Core
         }
 
         /// <summary>
-        /// Inspects UCCNC's Form1 userselecteddevtype field to detect the active hardware or demo controller.
+        /// Inspects UCCNC's Form1 fields to detect the active controller model, demo flag, raw type, and board serial.
         /// </summary>
-        public static (ControllerModel Model, bool IsDemoMode, string RawDeviceType) DetectActiveController(Form mainForm)
+        public static (ControllerModel Model, bool IsDemoMode, string RawDeviceType, string DeviceSerial) DetectActiveControllerWithSerial(Form mainForm)
         {
             string raw = "Demo_mode";
-            bool isDemo = true;
+            bool isDemoBool = false;
+            string serial = "";
 
             try
             {
                 if (mainForm != null)
                 {
-                    FieldInfo devTypeField = mainForm.GetType().GetField(
-                        "userselecteddevtype",
-                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    object val = devTypeField?.GetValue(mainForm);
+                    const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+                    Type formType = mainForm.GetType();
+
+                    object val = formType.GetField("userselecteddevtype", flags)?.GetValue(mainForm);
                     if (val != null)
                     {
                         raw = val.ToString();
-                        isDemo = raw.StartsWith("Demo", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    object demoObj = formType.GetField("rundemomode", flags)?.GetValue(mainForm);
+                    if (demoObj is bool bDemo)
+                    {
+                        isDemoBool = bDemo;
+                    }
+
+                    object serialObj = formType.GetField("devserial", flags)?.GetValue(mainForm);
+                    if (serialObj != null)
+                    {
+                        serial = serialObj.ToString().Trim();
                     }
                 }
             }
             catch { }
 
+            bool isDemo = isDemoBool || raw.StartsWith("Demo", StringComparison.OrdinalIgnoreCase);
+            string resolvedSerial = isDemo ? "DEMO-MODE" : (string.IsNullOrWhiteSpace(serial) ? "UNKNOWN" : serial);
             ControllerModel model = ParseModel(raw, ControllerModel.UC300ETH_5LPT);
-            return (model, isDemo, raw);
+            return (model, isDemo, raw, resolvedSerial);
+        }
+
+        /// <summary>
+        /// Inspects UCCNC's Form1 userselecteddevtype field to detect the active hardware or demo controller.
+        /// </summary>
+        public static (ControllerModel Model, bool IsDemoMode, string RawDeviceType) DetectActiveController(Form mainForm)
+        {
+            var info = DetectActiveControllerWithSerial(mainForm);
+            return (info.Model, info.IsDemoMode, info.RawDeviceType);
         }
     }
 }

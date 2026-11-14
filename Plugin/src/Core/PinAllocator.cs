@@ -212,35 +212,59 @@ namespace HTM_PRO.Core
                 cfg.Probe2Pin = 0;
             }
 
-            // 2. Home & Limit switches per active axis
+            // 2. Home & Limit switches per active axis according to HomeGrouping
             var enabledAxes = cfg.Axes.Where(a => a.Enabled).ToList();
 
-            foreach (var ax in enabledAxes)
+            if (cfg.HomeGrouping == HomePinGrouping.CommonMasterAndCommonSlave)
             {
-                // Skip slave home if user explicitly disabled independent gantry squaring
-                if (ax.Role == AxisRole.GantrySlave && !cfg.IndependentSlaveHome)
+                var masterHome = NextIn();
+                foreach (var ax in enabledAxes.Where(a => a.Role != AxisRole.GantrySlave))
                 {
-                    continue;
+                    ax.HomePort = masterHome.Port;
+                    ax.HomePin = masterHome.Pin;
+                    ApplySharedHomeAndLimitIfNeeded(cfg, ax, masterHome.Port, masterHome.Pin);
                 }
 
-                var home = NextIn();
-                ax.HomePort = home.Port;
-                ax.HomePin = home.Pin;
-
-                if (cfg.LimitStrategy == LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis)
+                var enabledSlaves = enabledAxes.Where(a => a.Role == AxisRole.GantrySlave).ToList();
+                if (cfg.IndependentSlaveHome && enabledSlaves.Count > 0)
                 {
-                    if (ax.HomeDirectionPositive)
+                    var slaveHome = NextIn();
+                    foreach (var sl in enabledSlaves)
                     {
-                        ax.LimitPlusPort = home.Port;
-                        ax.LimitPlusPin = home.Pin;
-                        ax.LimitPlusNegate = ax.HomeNegate;
+                        sl.HomePort = slaveHome.Port;
+                        sl.HomePin = slaveHome.Pin;
+                        ApplySharedHomeAndLimitIfNeeded(cfg, sl, slaveHome.Port, slaveHome.Pin);
                     }
-                    else
+                }
+            }
+            else if (cfg.HomeGrouping == HomePinGrouping.SingleCommonAllAxes)
+            {
+                var commonHome = NextIn();
+                foreach (var ax in enabledAxes)
+                {
+                    if (ax.Role == AxisRole.GantrySlave && !cfg.IndependentSlaveHome)
                     {
-                        ax.LimitMinusPort = home.Port;
-                        ax.LimitMinusPin = home.Pin;
-                        ax.LimitMinusNegate = ax.HomeNegate;
+                        continue;
                     }
+                    ax.HomePort = commonHome.Port;
+                    ax.HomePin = commonHome.Pin;
+                    ApplySharedHomeAndLimitIfNeeded(cfg, ax, commonHome.Port, commonHome.Pin);
+                }
+            }
+            else
+            {
+                foreach (var ax in enabledAxes)
+                {
+                    // Skip slave home if user explicitly disabled independent gantry squaring
+                    if (ax.Role == AxisRole.GantrySlave && !cfg.IndependentSlaveHome)
+                    {
+                        continue;
+                    }
+
+                    var home = NextIn();
+                    ax.HomePort = home.Port;
+                    ax.HomePin = home.Pin;
+                    ApplySharedHomeAndLimitIfNeeded(cfg, ax, home.Port, home.Pin);
                 }
             }
 
@@ -270,6 +294,26 @@ namespace HTM_PRO.Core
                     ax.LimitPlusPort = lp.Port;
                     ax.LimitPlusPin = lp.Pin;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Mirrors an axis's Home input to Limit+ or Limit- when SharedHomeAndLimitPerAxis is active.
+        /// </summary>
+        public static void ApplySharedHomeAndLimitIfNeeded(MachineConfig cfg, AxisConfig ax, int port, int pin)
+        {
+            if (cfg == null || ax == null || cfg.LimitStrategy != LimitHomeWiringStrategy.SharedHomeAndLimitPerAxis) return;
+            if (ax.HomeDirectionPositive)
+            {
+                ax.LimitPlusPort = port;
+                ax.LimitPlusPin = pin;
+                ax.LimitPlusNegate = ax.HomeNegate;
+            }
+            else
+            {
+                ax.LimitMinusPort = port;
+                ax.LimitMinusPin = pin;
+                ax.LimitMinusNegate = ax.HomeNegate;
             }
         }
 
@@ -379,13 +423,36 @@ namespace HTM_PRO.Core
                 var items = grp.ToList();
                 if (items.Count <= 1) continue;
 
-                bool sharedSameAxisHomeLimit = items.All(i => i.IsSharedIntentional) &&
-                    (items.All(i => i.FunctionName.EndsWith("Limit-") || i.FunctionName.EndsWith("Limit+")) ||
-                     items.Select(i => i.FunctionName.Split(' ')[0]).Distinct().Count() == 1);
+                bool allAxisSwitches = items.All(i =>
+                    i.FunctionName.EndsWith(" Home", StringComparison.Ordinal) ||
+                    i.FunctionName.EndsWith(" Limit-", StringComparison.Ordinal) ||
+                    i.FunctionName.EndsWith(" Limit+", StringComparison.Ordinal));
 
-                if (!sharedSameAxisHomeLimit)
+                if (!allAxisSwitches)
                 {
+                    // E-Stop / Probe inputs must never share a pin with other inputs or limit/home buses
                     report.Conflicts.Add($"INPUT Conflict on P{grp.Key.Port}-Pin{grp.Key.Pin}: {string.Join(", ", items.Select(i => i.FunctionName))}");
+                    continue;
+                }
+
+                if (cfg.HomeGrouping == HomePinGrouping.CommonMasterAndCommonSlave)
+                {
+                    bool slaveSharesMasterHome = cfg.Axes.Any(sl =>
+                        sl.Enabled &&
+                        sl.Role == AxisRole.GantrySlave &&
+                        !string.IsNullOrEmpty(sl.MasterAxis) &&
+                        sl.MasterAxis != "None" &&
+                        sl.HomePort == grp.Key.Port &&
+                        sl.HomePin == grp.Key.Pin &&
+                        cfg.Axes.Any(m => m.Enabled &&
+                            string.Equals(m.AxisName, sl.MasterAxis, StringComparison.OrdinalIgnoreCase) &&
+                            m.HomePort == grp.Key.Port &&
+                            m.HomePin == grp.Key.Pin));
+
+                    if (slaveSharesMasterHome)
+                    {
+                        report.Conflicts.Add($"INPUT Conflict on P{grp.Key.Port}-Pin{grp.Key.Pin}: Slave Home shares pin with its Master ({string.Join(", ", items.Select(i => i.FunctionName))}).");
+                    }
                 }
             }
 

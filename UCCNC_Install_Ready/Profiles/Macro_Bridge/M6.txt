@@ -1,0 +1,38 @@
+﻿// M6.txt - HTM_ATC Plugin Tool Change
+// Place in {UCCNC_Path}/Profiles/Macro_{ProfileName}/M6.txt
+
+// Get requested tool
+int newTool = exec.Getnewtool();
+
+// Call the HTM_ATC plugin to handle tool change motion / I/O / state
+object result = exec.Informplugin("HTM_ATC.dll", "M6:" + newTool);
+
+// Plugin return: null/empty = ok, non-empty string = error
+if (result is string)
+{
+	string error = result as string;
+	if (!string.IsNullOrEmpty(error))
+	{
+		exec.AddStatusmessage("ATC Error: " + error);
+		exec.Stop();
+		return;
+	}
+}
+
+// Tool length offset MUST be applied from macro context (exec.Code).
+// UC.Code("G43 Hx") issued inside the plugin often does not update the interpreter
+// modal state (status stays on the previous G43 Hy); MDI exec.Code works.
+int spindleTool = exec.Getcurrenttool();
+string applyG43Key = exec.Readkey("UserCheckboxes", "30005", "True");
+bool applyG43 = (applyG43Key == "True" || applyG43Key == "true" || applyG43Key == "1");
+
+if (spindleTool > 0 && applyG43)
+{
+	exec.Code("G43 H" + spindleTool);
+	exec.AddStatusmessage("ATC - G43 H" + spindleTool);
+}
+else
+{
+	exec.Code("G49");
+	exec.AddStatusmessage("ATC - G49");
+}

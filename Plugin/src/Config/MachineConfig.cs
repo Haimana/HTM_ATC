@@ -38,6 +38,16 @@ namespace HTM_PRO.Config
     }
 
     /// <summary>
+    /// Controls how Home switches are grouped across physical input pins.
+    /// </summary>
+    public enum HomePinGrouping
+    {
+        IndividualPerMotor,
+        CommonMasterAndCommonSlave,
+        SingleCommonAllAxes
+    }
+
+    /// <summary>
     /// Spindle speed and direction control mode in UCCNC.
     /// </summary>
     public enum SpindleControlMode
@@ -168,6 +178,7 @@ namespace HTM_PRO.Config
         public bool SharedEnableNegate { get; set; }
 
         public LimitHomeWiringStrategy LimitStrategy { get; set; } = LimitHomeWiringStrategy.HomeOnlyWithSoftLimits;
+        public HomePinGrouping HomeGrouping { get; set; } = HomePinGrouping.IndividualPerMotor;
         public bool IndependentSlaveHome { get; set; } = true;
         public int SharedSeriesLimitPort { get; set; }
         public int SharedSeriesLimitPin { get; set; }

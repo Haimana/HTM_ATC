@@ -30,6 +30,11 @@ namespace HTM_PRO.Core
         public string ProfilesDirectory => _profilesDir;
         public string PinoutSummaryPath => _pinoutSummaryPath;
 
+        public ControllerModel ActiveControllerModel { get; private set; } = ControllerModel.UC300ETH_5LPT;
+        public bool IsDemoMode { get; private set; } = true;
+        public string RawDeviceType { get; private set; } = "Demo_mode";
+        public string DeviceSerial { get; private set; } = "DEMO-MODE";
+
         public ProfileService(string startupPath, string profileName, Plugininterface.Entry uc)
         {
             _uc = uc;
@@ -40,72 +45,294 @@ namespace HTM_PRO.Core
             Config = new MachineConfig();
         }
 
+        public string GetControllerJsonPath(ControllerModel model) =>
+            Path.Combine(_profilesDir, $"HTM_PRO_Config_{_profileName}_{model}.json");
+
+        public string GetControllerSummaryPath(ControllerModel model) =>
+            Path.Combine(_profilesDir, $"HTM_PRO_Pinout_Summary_{_profileName}_{model}.txt");
+
         /// <summary>
-        /// Loads saved HTM_PRO configuration (JSON + UCCNC profile) and detects active controller & units.
+        /// Returns all controller hardware models that already have a completed Stage 1 configuration for this profile.
+        /// </summary>
+        public List<ControllerModel> GetConfiguredControllersForProfile()
+        {
+            var result = new List<ControllerModel>();
+            var ser = new JavaScriptSerializer();
+            foreach (ControllerModel model in Enum.GetValues(typeof(ControllerModel)))
+            {
+                string path = GetControllerJsonPath(model);
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    var parsed = ser.Deserialize<MachineConfig>(File.ReadAllText(path));
+                    if (parsed != null && parsed.Stage1Completed && !result.Contains(model))
+                    {
+                        result.Add(model);
+                    }
+                }
+                catch { }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Loads per-controller HTM_PRO configuration (or creates/clones one for a new controller) and detects active hardware & units.
         /// </summary>
         public void Load(Form mainForm)
         {
             try
             {
-                bool loadedJson = false;
+                var detected = HardwareCatalog.DetectActiveControllerWithSerial(mainForm);
+                ActiveControllerModel = detected.Model;
+                IsDemoMode = detected.IsDemoMode;
+                RawDeviceType = detected.RawDeviceType;
+                DeviceSerial = detected.DeviceSerial;
+
+                bool detectedImperial = DetectImperialFromUccncProfile();
+                var ser = new JavaScriptSerializer();
+
+                // Migrate legacy single-file config (HTM_PRO_Config_<Profile>.json) to per-controller storage
+                MachineConfig legacyCfg = null;
                 if (File.Exists(_jsonConfigPath))
                 {
-                    string json = File.ReadAllText(_jsonConfigPath);
-                    var ser = new JavaScriptSerializer();
-                    var deserialized = ser.Deserialize<MachineConfig>(json);
+                    try
+                    {
+                        legacyCfg = ser.Deserialize<MachineConfig>(File.ReadAllText(_jsonConfigPath));
+                        if (legacyCfg != null && !string.IsNullOrWhiteSpace(legacyCfg.ControllerType))
+                        {
+                            legacyCfg.EnsureSixAxes();
+                            ControllerModel legacyModel = HardwareCatalog.ParseModel(legacyCfg.ControllerType, ActiveControllerModel);
+                            string legacyPerCtrlPath = GetControllerJsonPath(legacyModel);
+                            if (!File.Exists(legacyPerCtrlPath))
+                            {
+                                if (!Directory.Exists(_profilesDir))
+                                {
+                                    Directory.CreateDirectory(_profilesDir);
+                                }
+                                File.Copy(_jsonConfigPath, legacyPerCtrlPath, false);
+                                PluginLogger.Log($"Migrated legacy config to per-controller file: {legacyPerCtrlPath}");
+                            }
+                        }
+                    }
+                    catch (Exception mex)
+                    {
+                        PluginLogger.Log($"Legacy config migration note: {mex.Message}");
+                    }
+                }
+
+                string activeJsonPath = GetControllerJsonPath(ActiveControllerModel);
+                if (File.Exists(activeJsonPath))
+                {
+                    var deserialized = ser.Deserialize<MachineConfig>(File.ReadAllText(activeJsonPath));
                     if (deserialized != null)
                     {
                         Config = deserialized;
                         Config.EnsureSixAxes();
-                        loadedJson = true;
-                        PluginLogger.Log($"Loaded JSON configuration from {_jsonConfigPath} (Stage1Completed={Config.Stage1Completed}).");
+                        Config.ControllerType = ActiveControllerModel.ToString();
+                        Config.IsImperial = detectedImperial;
+
+                        string lastIniCtrl = ReadIni("HTM_PRO", "ControllerType", "");
+                        if (Config.HomeGrouping == HomePinGrouping.IndividualPerMotor)
+                        {
+                            if (string.Equals(lastIniCtrl, ActiveControllerModel.ToString(), StringComparison.OrdinalIgnoreCase))
+                            {
+                                string iniGrouping = ReadIni("HTM_PRO", "HomeGrouping", "");
+                                if (Enum.TryParse<HomePinGrouping>(iniGrouping, out var parsedGrouping))
+                                {
+                                    Config.HomeGrouping = parsedGrouping;
+                                }
+                            }
+
+                            if (Config.HomeGrouping == HomePinGrouping.IndividualPerMotor)
+                            {
+                                var detectedGrouping = DetectHomeGroupingFromPins(Config);
+                                if (detectedGrouping != HomePinGrouping.IndividualPerMotor)
+                                {
+                                    Config.HomeGrouping = detectedGrouping;
+                                }
+                            }
+                        }
+
+                        PluginLogger.Log($"Loaded controller config from {activeJsonPath} (Stage1Completed={Config.Stage1Completed}, Device={RawDeviceType}, Serial={DeviceSerial}).");
+
+                        // Automatically switch UCCNC .pro & live GUI if profile currently holds a different controller
+                        if (Config.Stage1Completed &&
+                            !string.Equals(lastIniCtrl, ActiveControllerModel.ToString(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            PluginLogger.Log($"Active controller changed [{lastIniCtrl}] -> [{ActiveControllerModel}]; applying saved controller configuration to UCCNC.");
+                            ApplyAndSaveToUccnc(Config, mainForm);
+                        }
+                        return;
                     }
                 }
 
-                // Always refresh hardware controller detection from UCCNC if not overridden
-                var detected = HardwareCatalog.DetectActiveController(mainForm);
-                if (!loadedJson || string.IsNullOrWhiteSpace(Config.ControllerType))
-                {
-                    // Check if .pro has [HTM_PRO] ControllerType
-                    string iniCtrl = ReadIni("HTM_PRO", "ControllerType", "");
-                    Config.ControllerType = !string.IsNullOrWhiteSpace(iniCtrl)
-                        ? HardwareCatalog.ParseModel(iniCtrl, detected.Model).ToString()
-                        : detected.Model.ToString();
-                }
+                // Active controller has no saved JSON config yet
+                Config = new MachineConfig();
+                Config.ControllerType = ActiveControllerModel.ToString();
+                Config.Stage1Completed = false;
+                Config.ApplyUnitBaselineDefaults(detectedImperial);
 
-                if (!loadedJson)
-                {
-                    bool iniCompleted = ReadIniBool("HTM_PRO", "Stage1Completed", false);
-                    bool iniImperial = ReadIniBool("HTM_PRO", "IsImperial", DetectImperialFromUccncProfile());
-                    Config.Stage1Completed = iniCompleted;
-                    Config.ApplyUnitBaselineDefaults(iniImperial);
+                var spec = HardwareCatalog.GetSpec(ActiveControllerModel);
 
-                    if (iniCompleted || HasExistingConfiguredAxesInProfile())
-                    {
-                        ImportExistingUccncProfileSettings(Config);
-                    }
-                    else
-                    {
-                        var spec = HardwareCatalog.GetSpec(HardwareCatalog.ParseModel(Config.ControllerType));
-                        PinAllocator.AutoAssignOutputs(Config, spec);
-                        PinAllocator.AutoAssignInputs(Config, spec);
-                    }
+                // Check for a saved config from another controller in this profile to preserve machine kinematics
+                MachineConfig templateCfg = FindTemplateConfigFromOtherControllers(ser, legacyCfg);
+                if (templateCfg != null)
+                {
+                    CopyMechanicalAndFeatureSettings(templateCfg, Config);
+                    Config.ControllerType = ActiveControllerModel.ToString();
+                    Config.Stage1Completed = false;
+                    Config.IsImperial = detectedImperial;
+                    ResetAllPinAssignments(Config);
+                    PinAllocator.AutoAssignOutputs(Config, spec);
+                    PinAllocator.AutoAssignInputs(Config, spec);
+                    PluginLogger.Log($"Initialized new controller [{ActiveControllerModel}] using mechanics from existing profile config; Stage 1 Wizard required.");
                 }
                 else
                 {
-                    // Re-verify unit system if Stage 1 wasn't completed yet
-                    if (!Config.Stage1Completed)
+                    if (HasExistingConfiguredAxesInProfile())
                     {
-                        Config.IsImperial = DetectImperialFromUccncProfile();
+                        ImportExistingUccncProfileSettings(Config);
+                        Config.ControllerType = ActiveControllerModel.ToString();
+                        Config.Stage1Completed = false;
+                        Config.IsImperial = detectedImperial;
                     }
+                    else
+                    {
+                        PinAllocator.AutoAssignOutputs(Config, spec);
+                        PinAllocator.AutoAssignInputs(Config, spec);
+                    }
+                    PluginLogger.Log($"No prior config for [{ActiveControllerModel}] (Device={RawDeviceType}); Stage 1 Wizard will run.");
                 }
             }
             catch (Exception ex)
             {
                 PluginLogger.LogException("ProfileService.Load", ex);
                 Config = new MachineConfig();
+                Config.ControllerType = ActiveControllerModel.ToString();
                 Config.ApplyUnitBaselineDefaults(DetectImperialFromUccncProfile());
             }
+        }
+
+        private MachineConfig FindTemplateConfigFromOtherControllers(JavaScriptSerializer ser, MachineConfig legacyCfg)
+        {
+            foreach (var model in GetConfiguredControllersForProfile())
+            {
+                if (model == ActiveControllerModel) continue;
+                try
+                {
+                    var candidate = ser.Deserialize<MachineConfig>(File.ReadAllText(GetControllerJsonPath(model)));
+                    if (candidate != null && candidate.Stage1Completed)
+                    {
+                        candidate.EnsureSixAxes();
+                        return candidate;
+                    }
+                }
+                catch { }
+            }
+
+            if (legacyCfg != null && legacyCfg.Stage1Completed)
+            {
+                legacyCfg.EnsureSixAxes();
+                return legacyCfg;
+            }
+
+            return null;
+        }
+
+        private static void CopyMechanicalAndFeatureSettings(MachineConfig src, MachineConfig dst)
+        {
+            src.EnsureSixAxes();
+            dst.EnsureSixAxes();
+
+            for (int i = 0; i < 6; i++)
+            {
+                var s = src.Axes[i];
+                var d = dst.Axes[i];
+
+                d.Enabled = s.Enabled;
+                d.Role = s.Role;
+                d.MasterAxis = s.MasterAxis;
+                d.StepsPerUnit = s.StepsPerUnit;
+                d.MaxVelocity = s.MaxVelocity;
+                d.Acceleration = s.Acceleration;
+                d.MaxTravel = s.MaxTravel;
+                d.SoftLimitNegative = s.SoftLimitNegative;
+                d.SoftLimitPositive = s.SoftLimitPositive;
+                d.HomeDirectionPositive = s.HomeDirectionPositive;
+                d.HomeAutoZero = s.HomeAutoZero;
+                d.HomingSpeedUp = s.HomingSpeedUp;
+                d.HomingSpeedDown = s.HomingSpeedDown;
+                d.HomeBackoff = s.HomeBackoff;
+                d.IsRotary = s.IsRotary;
+                d.RotaryRollover = s.RotaryRollover;
+
+                d.StepNegate = s.StepNegate;
+                d.DirNegate = s.DirNegate;
+                d.EnaNegate = s.EnaNegate;
+                d.HomeNegate = s.HomeNegate;
+                d.LimitMinusNegate = s.LimitMinusNegate;
+                d.LimitPlusNegate = s.LimitPlusNegate;
+            }
+
+            dst.EnableStrategy = src.EnableStrategy;
+            dst.SharedEnableNegate = src.SharedEnableNegate;
+            dst.LimitStrategy = src.LimitStrategy;
+            dst.HomeGrouping = src.HomeGrouping;
+            dst.IndependentSlaveHome = src.IndependentSlaveHome;
+            dst.SharedSeriesLimitNegate = src.SharedSeriesLimitNegate;
+
+            dst.EnableSoftLimits = src.EnableSoftLimits;
+            dst.CheckHomeOnCycleStart = src.CheckHomeOnCycleStart;
+            dst.SafeZ = src.SafeZ;
+            dst.HomeSequence = src.HomeSequence != null && src.HomeSequence.Length == 6
+                ? (string[])src.HomeSequence.Clone()
+                : new[] { "Z", "X", "Y", "None", "None", "None" };
+
+            dst.ReserveResourcesForAtc = src.ReserveResourcesForAtc;
+            dst.UseFreshSetupDefaults = false;
+
+            dst.EstopNegate = src.EstopNegate;
+            dst.SpindleMode = src.SpindleMode;
+            dst.SpindlePwmNegate = src.SpindlePwmNegate;
+            dst.SpindlePwmFreq = src.SpindlePwmFreq;
+            dst.SpindleMinRpm = src.SpindleMinRpm;
+            dst.SpindleMaxRpm = src.SpindleMaxRpm;
+
+            dst.M3RelayNegate = src.M3RelayNegate;
+            dst.UseM4Relay = src.UseM4Relay;
+            dst.M4RelayNegate = src.M4RelayNegate;
+            dst.UseMistM7 = src.UseMistM7;
+            dst.M7MistNegate = src.M7MistNegate;
+            dst.UseFloodM8 = src.UseFloodM8;
+            dst.M8FloodNegate = src.M8FloodNegate;
+
+            dst.Probe1Negate = src.Probe1Negate;
+            dst.UseProbe2 = src.UseProbe2;
+            dst.Probe2Negate = src.Probe2Negate;
+        }
+
+        private static void ResetAllPinAssignments(MachineConfig cfg)
+        {
+            foreach (var ax in cfg.Axes)
+            {
+                ax.StepPort = 0; ax.StepPin = 0;
+                ax.DirPort = 0; ax.DirPin = 0;
+                ax.EnaPort = 0; ax.EnaPin = 0;
+                ax.HomePort = 0; ax.HomePin = 0;
+                ax.LimitMinusPort = 0; ax.LimitMinusPin = 0;
+                ax.LimitPlusPort = 0; ax.LimitPlusPin = 0;
+            }
+
+            cfg.SharedEnablePort = 0; cfg.SharedEnablePin = 0;
+            cfg.SharedSeriesLimitPort = 0; cfg.SharedSeriesLimitPin = 0;
+            cfg.EstopPort = 0; cfg.EstopPin = 0;
+            cfg.SpindlePwmPort = 0; cfg.SpindlePwmPin = 0;
+            cfg.M3RelayPort = 0; cfg.M3RelayPin = 0;
+            cfg.M4RelayPort = 0; cfg.M4RelayPin = 0;
+            cfg.M7MistPort = 0; cfg.M7MistPin = 0;
+            cfg.M8FloodPort = 0; cfg.M8FloodPin = 0;
+            cfg.Probe1Port = 0; cfg.Probe1Pin = 0;
+            cfg.Probe2Port = 0; cfg.Probe2Pin = 0;
         }
 
         /// <summary>
@@ -275,6 +502,48 @@ namespace HTM_PRO.Core
             target.SpindleMode = pwmMode
                 ? SpindleControlMode.PwmAndRelay
                 : (ReadIniInt("Spindlesetupsettings", "Spindlesteppin", 0) > 0 ? SpindleControlMode.StepDirAndRelay : SpindleControlMode.RelayOrModbusOnly);
+
+            string iniHomeGroup = ReadIni("HTM_PRO", "HomeGrouping", "");
+            if (Enum.TryParse<HomePinGrouping>(iniHomeGroup, out var parsedHomeGroup))
+            {
+                target.HomeGrouping = parsedHomeGroup;
+            }
+            else
+            {
+                target.HomeGrouping = DetectHomeGroupingFromPins(target);
+            }
+        }
+
+        private static HomePinGrouping DetectHomeGroupingFromPins(MachineConfig cfg)
+        {
+            if (cfg == null || cfg.Axes == null) return HomePinGrouping.IndividualPerMotor;
+
+            var mastersWithHome = cfg.Axes.Where(a => a.Enabled && a.Role != AxisRole.GantrySlave && a.HomePort > 0 && a.HomePin > 0).ToList();
+            var slavesWithHome = cfg.Axes.Where(a => a.Enabled && a.Role == AxisRole.GantrySlave && a.HomePort > 0 && a.HomePin > 0).ToList();
+
+            var masterPins = mastersWithHome.Select(a => (a.HomePort, a.HomePin)).Distinct().ToList();
+            var slavePins = slavesWithHome.Select(a => (a.HomePort, a.HomePin)).Distinct().ToList();
+
+            if (masterPins.Count == 1 && mastersWithHome.Count > 1)
+            {
+                if (slavePins.Count == 1)
+                {
+                    return masterPins[0] == slavePins[0]
+                        ? HomePinGrouping.SingleCommonAllAxes
+                        : HomePinGrouping.CommonMasterAndCommonSlave;
+                }
+                if (slavePins.Count == 0)
+                {
+                    return HomePinGrouping.CommonMasterAndCommonSlave;
+                }
+            }
+
+            if (masterPins.Count == 1 && slavePins.Count == 1 && masterPins[0] == slavePins[0] && (mastersWithHome.Count + slavesWithHome.Count) > 1)
+            {
+                return HomePinGrouping.SingleCommonAllAxes;
+            }
+
+            return HomePinGrouping.IndividualPerMotor;
         }
 
         /// <summary>
@@ -544,14 +813,18 @@ namespace HTM_PRO.Core
                     Directory.CreateDirectory(_profilesDir);
                 }
 
+                var model = HardwareCatalog.ParseModel(cfg.ControllerType, ActiveControllerModel);
                 var ser = new JavaScriptSerializer();
-                File.WriteAllText(_jsonConfigPath, ser.Serialize(cfg));
+                string json = ser.Serialize(cfg);
+                File.WriteAllText(GetControllerJsonPath(model), json);
+                File.WriteAllText(_jsonConfigPath, json);
 
                 WriteIni("HTM_PRO", "Stage1Completed", cfg.Stage1Completed.ToString());
                 WriteIni("HTM_PRO", "ControllerType", cfg.ControllerType);
                 WriteIni("HTM_PRO", "IsImperial", cfg.IsImperial.ToString());
                 WriteIni("HTM_PRO", "EnableStrategy", cfg.EnableStrategy.ToString());
                 WriteIni("HTM_PRO", "LimitStrategy", cfg.LimitStrategy.ToString());
+                WriteIni("HTM_PRO", "HomeGrouping", cfg.HomeGrouping.ToString());
                 WriteIni("HTM_PRO", "ReserveResourcesForAtc", cfg.ReserveResourcesForAtc.ToString());
             }
             catch (Exception ex)
@@ -594,10 +867,11 @@ namespace HTM_PRO.Core
             sb.AppendLine();
 
             sb.AppendLine($"[INPUT PINS ASSIGNED ({report.UsedInputCount}/{spec.TotalInputs})]");
-            foreach (var inp in report.AssignedInputs.OrderBy(x => x.Port).ThenBy(x => x.Pin))
+            foreach (var grp in report.AssignedInputs.GroupBy(x => (x.Port, x.Pin)).OrderBy(g => g.Key.Port).ThenBy(g => g.Key.Pin))
             {
-                string inv = inp.Negate ? " [Active Low]" : "";
-                sb.AppendLine($"  Port {inp.Port} Pin {inp.Pin,-2}  <- {inp.FunctionName}{inv}");
+                string inv = grp.Any(x => x.Negate) ? " [Active Low]" : "";
+                string functions = string.Join(" + ", grp.Select(x => x.FunctionName));
+                sb.AppendLine($"  Port {grp.Key.Port} Pin {grp.Key.Pin,-2}  <- {functions}{inv}");
             }
             sb.AppendLine();
 
@@ -625,6 +899,12 @@ namespace HTM_PRO.Core
             string content = sb.ToString();
             try
             {
+                if (!Directory.Exists(_profilesDir))
+                {
+                    Directory.CreateDirectory(_profilesDir);
+                }
+                var model = HardwareCatalog.ParseModel(cfg.ControllerType, ActiveControllerModel);
+                File.WriteAllText(GetControllerSummaryPath(model), content, Encoding.UTF8);
                 File.WriteAllText(_pinoutSummaryPath, content, Encoding.UTF8);
             }
             catch (Exception ex)
@@ -673,6 +953,20 @@ namespace HTM_PRO.Core
                             }
                             break;
                         }
+                    }
+                }
+
+                if (foundIdx < 0)
+                {
+                    if (labelNumber >= 1 && labelNumber <= 3)
+                    {
+                        string[] slaveOrder = { "None", "A", "B", "C" };
+                        foundIdx = Array.FindIndex(slaveOrder, s => string.Equals(s, targetText, StringComparison.OrdinalIgnoreCase));
+                    }
+                    else if (labelNumber >= 4 && labelNumber <= 9)
+                    {
+                        string[] homeSeqOrder = { "None", "X", "Y", "Z", "A", "B", "C" };
+                        foundIdx = Array.FindIndex(homeSeqOrder, s => string.Equals(s, targetText, StringComparison.OrdinalIgnoreCase));
                     }
                 }
 

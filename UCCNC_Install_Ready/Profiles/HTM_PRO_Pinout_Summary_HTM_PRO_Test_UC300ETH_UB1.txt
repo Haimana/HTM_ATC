@@ -1,0 +1,42 @@
+﻿====================================================================
+  HTM_PRO v1.0.0 - Machine Configuration & Pinout Summary
+  Profile: HTM_PRO_Test   Generated: 2026-11-14 15:22:18
+  Controller: UC300ETH-UB1 (CNCroom UB1 Breakout)   Units: Metric (mm)
+====================================================================
+
+[ACTIVE AXES & TRAVEL]
+  X: Role=PrimaryLinear      Steps/u=200      Vel=5000    SoftLimits=[0 .. 780 mm]
+  Y: Role=PrimaryLinear      Steps/u=200      Vel=5000    SoftLimits=[0 .. 1600 mm]
+  Z: Role=PrimaryLinear      Steps/u=200      Vel=3000    SoftLimits=[-230 .. 0 mm]
+  B: Role=Slave of Y         Steps/u=200      Vel=5000    SoftLimits=[0 .. 1600 mm]
+  C: Role=Slave of Z         Steps/u=200      Vel=3000    SoftLimits=[-230 .. 0 mm]
+
+[OUTPUT PINS ASSIGNED (11/36)]
+  Port 2 Pin 1   -> X Step
+  Port 2 Pin 2   -> X Dir
+  Port 2 Pin 3   -> Y Step
+  Port 2 Pin 4   -> Y Dir
+  Port 2 Pin 5   -> Z Step
+  Port 2 Pin 6   -> Z Dir [Active Low]
+  Port 2 Pin 7   -> B Step
+  Port 2 Pin 8   -> B Dir
+  Port 2 Pin 9   -> C Step
+  Port 2 Pin 14  -> C Dir
+  Port 2 Pin 17  -> Spindle M3 Relay
+
+[INPUT PINS ASSIGNED (4/49)]
+  Port 1 Pin 2   <- E-Stop [Active Low]
+  Port 1 Pin 3   <- Probe 1 (Tool Setter) [Active Low]
+  Port 1 Pin 4   <- X Home + Y Home + Z Home
+  Port 1 Pin 7   <- B Home + C Home
+
+[FREE OUTPUTS FOR STAGE 2 ATC (25)]
+  P1-1, P1-14, P1-16, P1-17, P2-16, P3-1, P3-2, P3-3, P3-4, P3-5, P3-6, P3-7, P3-8, P3-9, P3-14, P3-16, P3-17, P4-1, P4-14, P4-16, P4-17, P5-1, P5-14, P5-16, P5-17
+
+[FREE INPUTS FOR STAGE 2 ATC (45)]
+  P1-5, P1-6, P1-8, P1-9, P1-10, P1-11, P1-12, P1-13, P1-15, P2-10, P2-11, P2-12, P2-13, P2-15, P3-10, P3-11, P3-12, P3-13, P3-15, P4-2, P4-3, P4-4, P4-5, P4-6, P4-7, P4-8, P4-9, P4-10, P4-11, P4-12, P4-13, P4-15, P5-2, P5-3, P5-4, P5-5, P5-6, P5-7, P5-8, P5-9, P5-10, P5-11, P5-12, P5-13, P5-15
+
+[STAGE 2 ATC READINESS]
+25 free output(s) available for ATC solenoids.
+Inputs: 45 free -> Full Per-Slot Sensors up to 20 linear slots
+Axes: Free axis channel(s) [A] available for Rotary Magazine (up to 32 slots).
